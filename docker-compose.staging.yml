@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  vaultsync-staging:
+    image: vaultsync:staging
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: vaultsync_staging
+    ports:
+      - "3001:3000"
+    volumes:
+      - ./staging_data:/app/data
+    environment:
+      - RUST_LOG=debug
+      - DATABASE_URL=sqlite:///app/data/vaultsync.db
+      - ENVIRONMENT=staging
+    restart: always

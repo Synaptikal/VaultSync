@@ -1,0 +1,11 @@
+target/
+vaultsync.db
+.git
+.env
+.github
+Dockerfile
+README.md
+docs/
+tests/
+frontend/
+.agent/

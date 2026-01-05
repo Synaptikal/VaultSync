@@ -1,0 +1,12 @@
+# Cargo configuration for VaultSync project
+# This file contains build settings specific to this project
+
+[target.x86_64-pc-windows-msvc]
+# Fix for MSVC link.exe 0xc0000409 error on Visual Studio 17.14+
+# The linker crashes due to long symbol names when generating PDB files
+# See: https://github.com/rust-lang/rust/issues/135289
+rustflags = ["-C", "link-arg=/DEBUG:NONE"]
+
+[build]
+# Number of parallel jobs (optional - uncomment to limit)
+# jobs = 4

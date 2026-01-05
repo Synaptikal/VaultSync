@@ -1,0 +1,53 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.56s
+     Running tests\service_tests.rs (target\debug\deps\service_tests-4a75cd3cd20ece80.exe)
+
+running 15 tests
+test tax_service_tests::test_tax_rounding ... ok
+test tax_service_tests::test_tax_exempt_calculation ... ok
+test backup_service_tests::test_backup_filename_format ... ok
+test backup_service_tests::test_backup_config_default ... ok
+test tax_service_tests::test_tax_calculation_logic ... ok
+test barcode_tests::test_ean13_checksum ... ok
+test barcode_tests::test_sku_generation ... ok
+test backup_service_tests::test_backup_without_source_fails_gracefully ... ok
+test backup_service_tests::test_backup_listing ... ok
+test backup_service_tests::test_backup_creation_with_source ... ok
+test backup_service_tests::test_retention_policy ... ok
+test inventory_tests::test_product_creation ... FAILED
+test inventory_tests::test_inventory_quantity_update ... FAILED
+test tax_service_tests::test_database_tax_rate_storage ... FAILED
+test customer_tests::test_customer_crud ... FAILED
+
+failures:
+
+---- inventory_tests::test_product_creation stdout ----
+
+thread 'inventory_tests::test_product_creation' panicked at tests\service_tests.rs:347:10:
+Failed to create product: Database(SqliteError { code: 1, message: "no such table: Products" })
+
+---- inventory_tests::test_inventory_quantity_update stdout ----
+
+thread 'inventory_tests::test_inventory_quantity_update' panicked at tests\service_tests.rs:372:10:
+called `Result::unwrap()` on an `Err` value: Database(SqliteError { code: 1, message: "no such table: Products" })
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- tax_service_tests::test_database_tax_rate_storage stdout ----
+
+thread 'tax_service_tests::test_database_tax_rate_storage' panicked at tests\service_tests.rs:33:10:
+Failed to insert tax rate: Database(SqliteError { code: 1, message: "no such table: TaxRates" })
+
+---- customer_tests::test_customer_crud stdout ----
+
+thread 'customer_tests::test_customer_crud' panicked at tests\service_tests.rs:281:10:
+Failed to create customer: Database(SqliteError { code: 1299, message: "NOT NULL constraint failed: Customers.created_at" })
+
+
+failures:
+    customer_tests::test_customer_crud
+    inventory_tests::test_inventory_quantity_update
+    inventory_tests::test_product_creation
+    tax_service_tests::test_database_tax_rate_storage
+
+test result: FAILED. 11 passed; 4 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s
+
+error: test failed, to rerun pass `--test service_tests`

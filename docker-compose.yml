@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  vaultsync:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - RUST_LOG=info
+      - DATABASE_URL=sqlite://data/vaultsync.db
+    restart: unless-stopped

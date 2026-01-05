@@ -1,0 +1,49 @@
+# Build artifacts
+/target/
+
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment files - NEVER commit secrets
+.env
+.env.local
+.env.*.local
+
+# Database files
+*.db
+*.db-shm
+*.db-wal
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Test output
+test_output.txt
+test_result.txt
+build_output.txt
+build_error*.txt
+check_output*.txt
+check_results.txt
+full_test_output.txt
+test_fail_output.txt
+
+# Flutter/Dart
+frontend/.dart_tool/
+frontend/build/
+frontend/.packages
+frontend/.pub-cache/
+frontend/.pub/
+frontend/*.iml
+
+# Coverage
+coverage/
+*.lcov

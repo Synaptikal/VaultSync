@@ -1,0 +1,28 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.59s
+     Running tests\api_integration_tests.rs (target\debug\deps\api_integration_tests-c950b81f12aa8899.exe)
+
+running 2 tests
+test test_health_endpoint ... FAILED
+test test_get_products_unauthorized ... FAILED
+
+failures:
+
+---- test_health_endpoint stdout ----
+
+thread 'test_health_endpoint' panicked at C:\Users\Justin\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\axum-0.7.9\src\routing\path_router.rs:70:22:
+Overlapping method route. Handler for `GET /api/reports/sales` already exists
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- test_get_products_unauthorized stdout ----
+
+thread 'test_get_products_unauthorized' panicked at C:\Users\Justin\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\axum-0.7.9\src\routing\path_router.rs:70:22:
+Overlapping method route. Handler for `GET /api/reports/sales` already exists
+
+
+failures:
+    test_get_products_unauthorized
+    test_health_endpoint
+
+test result: FAILED. 0 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+error: test failed, to rerun pass `--test api_integration_tests`

@@ -1,0 +1,31 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.60s
+     Running tests\product_repository_test.rs (target\debug\deps\product_repository_test-3be8887f2a1fa599.exe)
+
+running 9 tests
+test common::tests::test_create_test_customer ... ok
+test common::tests::test_create_test_product ... ok
+test test_product_barcode_lookup ... ok
+test test_product_category_filtering ... ok
+test common::tests::test_setup_test_db ... ok
+test test_product_insert_and_retrieve ... ok
+test test_product_update ... FAILED
+test test_product_search ... ok
+test test_product_pagination ... ok
+
+failures:
+
+---- test_product_update stdout ----
+
+thread 'test_product_update' panicked at tests\product_repository_test.rs:105:5:
+assertion `left == right` failed
+  left: None
+ right: Some(29.99)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    test_product_update
+
+test result: FAILED. 8 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.29s
+
+error: test failed, to rerun pass `--test product_repository_test`

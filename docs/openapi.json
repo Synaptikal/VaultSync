@@ -1,0 +1,616 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "vaultsync",
+    "description": "Next-generation, offline-first POS system for TCG and collectibles industry",
+    "license": {
+      "name": ""
+    },
+    "version": "0.1.0"
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "Category": {
+        "type": "string",
+        "enum": [
+          "TCG",
+          "SportsCard",
+          "Comic",
+          "Bobblehead",
+          "Apparel",
+          "Figure",
+          "Accessory",
+          "Other"
+        ]
+      },
+      "ChangeRecord": {
+        "type": "object",
+        "required": [
+          "record_id",
+          "record_type",
+          "operation",
+          "data",
+          "vector_timestamp",
+          "timestamp"
+        ],
+        "properties": {
+          "checksum": {
+            "type": "string",
+            "description": "TASK-123: Checksum for data integrity verification",
+            "nullable": true
+          },
+          "data": {},
+          "operation": {
+            "$ref": "#/components/schemas/SyncOperation"
+          },
+          "record_id": {
+            "type": "string"
+          },
+          "record_type": {
+            "$ref": "#/components/schemas/RecordType"
+          },
+          "sequence_number": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Server-local sequence number for delta sync",
+            "nullable": true,
+            "minimum": 0
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "vector_timestamp": {
+            "$ref": "#/components/schemas/VectorTimestamp"
+          }
+        }
+      },
+      "Condition": {
+        "type": "string",
+        "enum": [
+          "NM",
+          "LP",
+          "MP",
+          "HP",
+          "DMG",
+          "New",
+          "OpenBox",
+          "Used",
+          "GemMint",
+          "Mint",
+          "NearMintMint",
+          "VeryFine",
+          "Fine",
+          "Good",
+          "Poor"
+        ]
+      },
+      "Customer": {
+        "type": "object",
+        "required": [
+          "customer_uuid",
+          "name",
+          "store_credit",
+          "created_at"
+        ],
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "customer_uuid": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "email": {
+            "type": "string",
+            "nullable": true
+          },
+          "name": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string",
+            "nullable": true
+          },
+          "store_credit": {
+            "type": "number",
+            "format": "double"
+          },
+          "tier": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "Event": {
+        "type": "object",
+        "required": [
+          "event_uuid",
+          "name",
+          "event_type",
+          "date",
+          "entry_fee",
+          "created_at"
+        ],
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "date": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "entry_fee": {
+            "type": "number",
+            "format": "double"
+          },
+          "event_type": {
+            "type": "string"
+          },
+          "event_uuid": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "max_participants": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "EventParticipant": {
+        "type": "object",
+        "required": [
+          "participant_uuid",
+          "event_uuid",
+          "name",
+          "paid",
+          "created_at"
+        ],
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "customer_uuid": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "event_uuid": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "paid": {
+            "type": "boolean"
+          },
+          "participant_uuid": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "placement": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          }
+        }
+      },
+      "InventoryItem": {
+        "type": "object",
+        "required": [
+          "inventory_uuid",
+          "product_uuid",
+          "condition",
+          "quantity_on_hand",
+          "location_tag",
+          "serialized_details",
+          "min_stock_level"
+        ],
+        "properties": {
+          "bin_location": {
+            "type": "string",
+            "nullable": true
+          },
+          "condition": {
+            "$ref": "#/components/schemas/Condition"
+          },
+          "cost_basis": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "deleted_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "inventory_uuid": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "last_counted_date": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "last_sold_date": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "location_tag": {
+            "type": "string"
+          },
+          "max_stock_level": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "min_stock_level": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "product_uuid": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "quantity_on_hand": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "received_date": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "reorder_point": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "serialized_details": {
+            "type": "object"
+          },
+          "specific_price": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "supplier_uuid": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "variant_type": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VariantType"
+              }
+            ],
+            "nullable": true
+          }
+        }
+      },
+      "PriceInfo": {
+        "type": "object",
+        "required": [
+          "price_uuid",
+          "product_uuid",
+          "market_mid",
+          "market_low",
+          "last_sync_timestamp"
+        ],
+        "properties": {
+          "last_sync_timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "market_low": {
+            "type": "number",
+            "format": "double"
+          },
+          "market_mid": {
+            "type": "number",
+            "format": "double"
+          },
+          "price_uuid": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "product_uuid": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "Product": {
+        "type": "object",
+        "required": [
+          "product_uuid",
+          "name",
+          "category",
+          "metadata"
+        ],
+        "properties": {
+          "barcode": {
+            "type": "string",
+            "nullable": true
+          },
+          "category": {
+            "$ref": "#/components/schemas/Category"
+          },
+          "collector_number": {
+            "type": "string",
+            "nullable": true
+          },
+          "deleted_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "height_in": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "isbn": {
+            "type": "string",
+            "nullable": true
+          },
+          "length_in": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "manufacturer": {
+            "type": "string",
+            "nullable": true
+          },
+          "metadata": {
+            "type": "object"
+          },
+          "msrp": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "name": {
+            "type": "string"
+          },
+          "product_uuid": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "release_year": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "set_code": {
+            "type": "string",
+            "nullable": true
+          },
+          "upc": {
+            "type": "string",
+            "nullable": true
+          },
+          "weight_oz": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "width_in": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          }
+        }
+      },
+      "RecordType": {
+        "type": "string",
+        "enum": [
+          "Product",
+          "InventoryItem",
+          "PriceInfo",
+          "Transaction",
+          "Customer",
+          "WantsList",
+          "Event",
+          "EventParticipant"
+        ]
+      },
+      "SyncOperation": {
+        "type": "string",
+        "enum": [
+          "Insert",
+          "Update",
+          "Delete"
+        ]
+      },
+      "Transaction": {
+        "type": "object",
+        "required": [
+          "transaction_uuid",
+          "items",
+          "timestamp",
+          "transaction_type"
+        ],
+        "properties": {
+          "customer_uuid": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TransactionItem"
+            }
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "transaction_type": {
+            "$ref": "#/components/schemas/TransactionType"
+          },
+          "transaction_uuid": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "user_uuid": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          }
+        }
+      },
+      "TransactionItem": {
+        "type": "object",
+        "required": [
+          "item_uuid",
+          "product_uuid",
+          "quantity",
+          "unit_price",
+          "condition"
+        ],
+        "properties": {
+          "condition": {
+            "$ref": "#/components/schemas/Condition"
+          },
+          "item_uuid": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "product_uuid": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "quantity": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "unit_price": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "TransactionType": {
+        "type": "string",
+        "enum": [
+          "Sale",
+          "Buy",
+          "Trade",
+          "Return"
+        ]
+      },
+      "VariantType": {
+        "type": "string",
+        "enum": [
+          "Normal",
+          "Foil",
+          "ReverseHolo",
+          "FirstEdition",
+          "Stamped",
+          "Signed",
+          "Graded",
+          "Refractor",
+          "Patch",
+          "Auto"
+        ]
+      },
+      "VectorTimestamp": {
+        "type": "object",
+        "required": [
+          "entries"
+        ],
+        "properties": {
+          "entries": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          }
+        }
+      },
+      "WantsItem": {
+        "type": "object",
+        "required": [
+          "item_uuid",
+          "product_uuid",
+          "min_condition",
+          "created_at"
+        ],
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "item_uuid": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "max_price": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "min_condition": {
+            "$ref": "#/components/schemas/Condition"
+          },
+          "product_uuid": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "WantsList": {
+        "type": "object",
+        "required": [
+          "wants_list_uuid",
+          "customer_uuid",
+          "items",
+          "created_at"
+        ],
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "customer_uuid": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WantsItem"
+            }
+          },
+          "wants_list_uuid": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "VaultSync",
+      "description": "VaultSync POS API"
+    }
+  ]
+}

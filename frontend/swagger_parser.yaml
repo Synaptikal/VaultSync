@@ -1,0 +1,5 @@
+swagger_parser:
+  schema_path: ../docs/openapi.json
+  output_directory: lib/src/api/generated
+  json_serializer: json_serializable
+  enums_to_json: true
