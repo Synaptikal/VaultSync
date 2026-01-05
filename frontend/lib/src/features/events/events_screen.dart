@@ -32,8 +32,8 @@ class _EventsScreenState extends State<EventsScreen> {
 
     await showDialog(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (sbContext, setState) => AlertDialog(
           title: const Text('Create Event'),
           content: SingleChildScrollView(
             child: Column(
@@ -102,7 +102,7 @@ class _EventsScreenState extends State<EventsScreen> {
           ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(context),
+                onPressed: () => Navigator.pop(dialogContext),
                 child: const Text('Cancel')),
             FilledButton(
                 onPressed: () async {
@@ -125,11 +125,15 @@ class _EventsScreenState extends State<EventsScreen> {
                       createdAt: DateTime.now(),
                     );
 
+                    // Use external context (widget's context) for Provider
                     await context.read<EventsProvider>().createEvent(event);
-                    if (mounted) Navigator.pop(context);
+
+                    if (dialogContext.mounted) Navigator.pop(dialogContext);
                   } catch (e) {
-                    ScaffoldMessenger.of(context)
-                        .showSnackBar(SnackBar(content: Text('Error: $e')));
+                    if (mounted) {
+                      ScaffoldMessenger.of(context)
+                          .showSnackBar(SnackBar(content: Text('Error: $e')));
+                    }
                   }
                 },
                 child: const Text('Create')),

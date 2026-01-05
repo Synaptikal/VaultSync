@@ -273,10 +273,12 @@ class _InventoryListTabState extends State<_InventoryListTab> {
           child: FutureBuilder<List<InventoryItem>>(
             future: context.read<ApiService>().getInventory(),
             builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting)
+              if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
-              if (snapshot.hasError)
+              }
+              if (snapshot.hasError) {
                 return Center(child: Text('Error: ${snapshot.error}'));
+              }
 
               final items = snapshot.data ?? [];
 

@@ -157,7 +157,7 @@ class ConflictAlertDialog extends StatelessWidget {
           color: Colors.orange, size: 48),
       title: Text(
           '$conflictCount Sync Conflict${conflictCount > 1 ? 's' : ''} Detected'),
-      content: Text(
+      content: const Text(
         'Changes made on different terminals are in conflict. '
         'Please review and resolve to continue syncing.',
       ),

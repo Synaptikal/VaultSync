@@ -45,10 +45,14 @@ class _PricingScreenState extends State<PricingScreen> {
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('Syncing prices...')));
       await context.read<ApiService>().triggerPriceSync();
-      _loadData(); // Reload dashboard
+      if (mounted) {
+        _loadData(); // Reload dashboard
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Sync failed: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Sync failed: $e')));
+      }
     }
   }
 

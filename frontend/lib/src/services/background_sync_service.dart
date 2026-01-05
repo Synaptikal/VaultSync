@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:workmanager/workmanager.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'sync_queue_service.dart';
@@ -31,7 +32,7 @@ import 'storage_service.dart';
 @pragma('vm:entry-point')
 void callbackDispatcher() {
   Workmanager().executeTask((task, inputData) async {
-    print('[BackgroundSync] Task started: $task');
+    debugPrint('[BackgroundSync] Task started: $task');
 
     try {
       // Initialize services
@@ -48,19 +49,19 @@ void callbackDispatcher() {
       final result = await connectivity.checkConnectivity();
 
       if (result == ConnectivityResult.none) {
-        print('[BackgroundSync] No connectivity, skipping sync');
+        debugPrint('[BackgroundSync] No connectivity, skipping sync');
         return Future.value(true);
       }
 
       // Process queue
       final (successCount, failureCount) = await syncQueue.processQueue();
 
-      print(
+      debugPrint(
           '[BackgroundSync] Sync complete: $successCount/$successCount+$failureCount');
 
       return Future.value(true);
     } catch (e) {
-      print('[BackgroundSync] Error: $e');
+      debugPrint('[BackgroundSync] Error: $e');
       return Future.value(false);
     }
   });
@@ -101,7 +102,7 @@ class BackgroundSyncService {
       backoffPolicyDelay: const Duration(minutes: 1),
     );
 
-    print(
+    debugPrint(
         '[BackgroundSync] Periodic sync registered (every ${frequency.inMinutes} min)');
   }
 
@@ -115,14 +116,14 @@ class BackgroundSyncService {
       ),
     );
 
-    print('[BackgroundSync] Immediate sync triggered');
+    debugPrint('[BackgroundSync] Immediate sync triggered');
   }
 
   /// Listen to connectivity changes and sync when coming online
   static void _listenToConnectivityChanges() {
     Connectivity().onConnectivityChanged.listen((result) {
       if (result != ConnectivityResult.none) {
-        print('[BackgroundSync] Connectivity restored, triggering sync');
+        debugPrint('[BackgroundSync] Connectivity restored, triggering sync');
         triggerImmediateSync();
       }
     });
@@ -131,13 +132,13 @@ class BackgroundSyncService {
   /// Cancel all background tasks
   static Future<void> cancelAll() async {
     await Workmanager().cancelAll();
-    print('[BackgroundSync] All tasks cancelled');
+    debugPrint('[BackgroundSync] All tasks cancelled');
   }
 
   /// Cancel periodic sync only
   static Future<void> cancelPeriodicSync() async {
     await Workmanager().cancelByUniqueName(_periodicSyncTask);
-    print('[BackgroundSync] Periodic sync cancelled');
+    debugPrint('[BackgroundSync] Periodic sync cancelled');
   }
 }
 

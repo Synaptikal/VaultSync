@@ -189,7 +189,7 @@ class ApiClient {
         e.type == DioExceptionType.sendTimeout ||
         e.type == DioExceptionType.receiveTimeout ||
         e.type == DioExceptionType.connectionError) {
-      return NetworkException(
+      return const NetworkException(
         'No internet connection. Changes saved locally and will sync when online.',
       );
     }
@@ -199,12 +199,12 @@ class ApiClient {
         final message = e.response?.data?['error'] ?? 'Invalid request';
         return ValidationException(message);
       case 401:
-        return AuthenticationException('Session expired. Please log in again.');
+        return const AuthenticationException('Session expired. Please log in again.');
       case 403:
-        return AuthorizationException(
+        return const AuthorizationException(
             'You do not have permission to perform this action.');
       case 404:
-        return NotFoundException('Resource not found');
+        return const NotFoundException('Resource not found');
       case 409:
         return ConflictException(
           'A conflict was detected. ${e.response?.data?['error'] ?? 'Please review and resolve.'}',
@@ -212,7 +212,7 @@ class ApiClient {
       case 500:
       case 502:
       case 503:
-        return ServerException('Server error. Please try again later.');
+        return const ServerException('Server error. Please try again later.');
       default:
         return UnknownException(e.message ?? 'An unexpected error occurred');
     }

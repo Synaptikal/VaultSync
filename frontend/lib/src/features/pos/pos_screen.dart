@@ -129,7 +129,7 @@ class _POSScreenState extends State<POSScreen>
       builder: (context) => _CustomerSelectionDialog(),
     );
 
-    if (customer != null) {
+    if (customer != null && mounted) {
       setState(() => _selectedCustomer = customer);
       context.read<CartProvider>().setCustomer(customer);
     }

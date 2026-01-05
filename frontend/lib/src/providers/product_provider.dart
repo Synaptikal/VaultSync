@@ -107,8 +107,9 @@ class ProductProvider with ChangeNotifier {
           await _apiService.createProduct(product.toJson());
           await _localStorage.saveProduct(product, isSynced: true);
         } catch (e) {
-          if (kDebugMode)
+          if (kDebugMode) {
             print('Failed to sync product ${product.productUuid}: $e');
+          }
           // Keep it unsynced
         }
       }

@@ -203,7 +203,7 @@ class ProductLocalDataSource {
       'collector_number': product.collectorNumber,
       'barcode': product.barcode,
       'release_year': product.releaseYear,
-      'metadata': product.metadata != null ? product.metadata.toString() : null,
+      'metadata': product.metadata?.toString(),
       'is_synced': isSynced ? 1 : 0,
       'created_at': DateTime.now().toIso8601String(),
       'updated_at': DateTime.now().toIso8601String(),

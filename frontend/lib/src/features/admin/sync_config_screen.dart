@@ -15,7 +15,7 @@ class SyncConfigScreen extends StatefulWidget {
 class _SyncConfigScreenState extends State<SyncConfigScreen> {
   bool _isLoading = true;
   Map<String, dynamic>? _serverStatus;
-  
+
   @override
   void initState() {
     super.initState();
@@ -35,19 +35,22 @@ class _SyncConfigScreenState extends State<SyncConfigScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     }
   }
 
   Future<void> _triggerPeerSync() async {
     try {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Requesting server peer sync...')));
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Requesting server peer sync...')));
       await context.read<ApiService>().triggerPeerSync();
       _loadStatus();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Sync failed: $e')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Sync failed: $e')));
       }
     }
   }
@@ -67,7 +70,8 @@ class _SyncConfigScreenState extends State<SyncConfigScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Local Device Sync Status
-            const Text('📱 This Device', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const Text('📱 This Device',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             const SyncStatusWidget(),
             const SizedBox(height: 24),
@@ -79,15 +83,23 @@ class _SyncConfigScreenState extends State<SyncConfigScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Device Sync Details', style: TextStyle(fontWeight: FontWeight.bold)),
+                    const Text('Device Sync Details',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
                     const Divider(),
-                    _DetailRow('Status', syncService.isOnline ? 'Online' : 'Offline'),
-                    _DetailRow('Pending Changes', '${syncService.pendingChangesCount}'),
-                    _DetailRow('Last Sync', syncService.lastSuccessfulSync != null 
-                        ? DateFormat.yMMMd().add_jm().format(syncService.lastSuccessfulSync!) 
-                        : 'Never'),
+                    _DetailRow(
+                        'Status', syncService.isOnline ? 'Online' : 'Offline'),
+                    _DetailRow('Pending Changes',
+                        '${syncService.pendingChangesCount}'),
+                    _DetailRow(
+                        'Last Sync',
+                        syncService.lastSuccessfulSync != null
+                            ? DateFormat.yMMMd()
+                                .add_jm()
+                                .format(syncService.lastSuccessfulSync!)
+                            : 'Never'),
                     if (syncService.lastError != null)
-                      _DetailRow('Last Error', syncService.lastError!, isError: true),
+                      _DetailRow('Last Error', syncService.lastError!,
+                          isError: true),
                   ],
                 ),
               ),
@@ -97,11 +109,18 @@ class _SyncConfigScreenState extends State<SyncConfigScreen> {
               children: [
                 Expanded(
                   child: FilledButton.icon(
-                    onPressed: syncService.isOnline ? () => syncService.syncNow() : null,
-                    icon: syncService.isSyncing 
-                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    onPressed: syncService.isOnline
+                        ? () => syncService.syncNow()
+                        : null,
+                    icon: syncService.isSyncing
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Colors.white))
                         : const Icon(Icons.sync),
-                    label: Text(syncService.isSyncing ? 'Syncing...' : 'Sync Now'),
+                    label:
+                        Text(syncService.isSyncing ? 'Syncing...' : 'Sync Now'),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -111,16 +130,23 @@ class _SyncConfigScreenState extends State<SyncConfigScreen> {
                       context: context,
                       builder: (context) => AlertDialog(
                         title: const Text('Reset Sync State?'),
-                        content: const Text('This will clear the sync history and re-sync all data from the server.'),
+                        content: const Text(
+                            'This will clear the sync history and re-sync all data from the server.'),
                         actions: [
-                          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-                          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Reset')),
+                          TextButton(
+                              onPressed: () => Navigator.pop(context, false),
+                              child: const Text('Cancel')),
+                          FilledButton(
+                              onPressed: () => Navigator.pop(context, true),
+                              child: const Text('Reset')),
                         ],
                       ),
                     );
                     if (confirm == true) {
                       await syncService.resetSyncState();
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sync state reset')));
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Sync state reset')));
                     }
                   },
                   child: const Text('Reset'),
@@ -133,7 +159,8 @@ class _SyncConfigScreenState extends State<SyncConfigScreen> {
             const SizedBox(height: 16),
 
             // Server Status
-            const Text('🖥️ Server Status', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const Text('🖥️ Server Status',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             if (_isLoading)
               const Center(child: CircularProgressIndicator())
@@ -154,17 +181,25 @@ class _SyncConfigScreenState extends State<SyncConfigScreen> {
                     children: [
                       Row(
                         children: [
-                          Icon(Icons.hub, size: 32, color: Colors.green.shade700),
+                          Icon(Icons.hub,
+                              size: 32, color: Colors.green.shade700),
                           const SizedBox(width: 16),
-                          const Text('Backend Node', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                          const Text('Backend Node',
+                              style: TextStyle(
+                                  fontSize: 16, fontWeight: FontWeight.bold)),
                         ],
                       ),
                       const Divider(),
-                      _DetailRow('Node ID', _serverStatus!['node_id'] ?? 'Unknown'),
-                      _DetailRow('Is Synced', _serverStatus!['is_synced']?.toString() ?? 'false'),
-                      _DetailRow('Pending Changes', _serverStatus!['pending_changes']?.toString() ?? '0'),
-                      _DetailRow('Connected Peers', _serverStatus!['connected_peers']?.toString() ?? '0'),
-                      _DetailRow('Last Sync', _serverStatus!['last_sync'] ?? 'Never'),
+                      _DetailRow(
+                          'Node ID', _serverStatus!['node_id'] ?? 'Unknown'),
+                      _DetailRow('Is Synced',
+                          _serverStatus!['is_synced']?.toString() ?? 'false'),
+                      _DetailRow('Pending Changes',
+                          _serverStatus!['pending_changes']?.toString() ?? '0'),
+                      _DetailRow('Connected Peers',
+                          _serverStatus!['connected_peers']?.toString() ?? '0'),
+                      _DetailRow(
+                          'Last Sync', _serverStatus!['last_sync'] ?? 'Never'),
                     ],
                   ),
                 ),
@@ -184,21 +219,24 @@ class _SyncConfigScreenState extends State<SyncConfigScreen> {
             const SizedBox(height: 16),
 
             // Network Settings
-            const Text('⚙️ Settings', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const Text('⚙️ Settings',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             Card(
               child: Column(
                 children: [
                   SwitchListTile(
                     title: const Text('Auto-Sync'),
-                    subtitle: const Text('Automatically sync changes in background'),
+                    subtitle:
+                        const Text('Automatically sync changes in background'),
                     value: true, // Would be configurable
                     onChanged: (v) {},
                   ),
                   const Divider(height: 1),
                   SwitchListTile(
                     title: const Text('Sync on Wi-Fi Only'),
-                    subtitle: const Text('Save mobile data by syncing only on Wi-Fi'),
+                    subtitle:
+                        const Text('Save mobile data by syncing only on Wi-Fi'),
                     value: false, // Would be configurable
                     onChanged: (v) {},
                   ),
@@ -246,7 +284,7 @@ class _DetailRow extends StatelessWidget {
           const SizedBox(width: 16),
           Flexible(
             child: Text(
-              value, 
+              value,
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 color: isError ? Colors.red : null,

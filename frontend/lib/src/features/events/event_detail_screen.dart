@@ -35,7 +35,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     await showDialog(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
+        builder: (sbContext, setDialogState) => AlertDialog(
           title: const Text('Register Participant'),
           content: SizedBox(
             width: 400,
@@ -112,28 +112,29 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                           createdAt: DateTime.now(),
                         );
 
-                        await this
-                            .context
-                            .read<ApiService>()
-                            .registerParticipant(
-                                widget.event.eventUuid, participant);
+                        await context.read<ApiService>().registerParticipant(
+                            widget.event.eventUuid, participant);
 
-                        if (mounted) {
+                        if (dialogContext.mounted) {
                           Navigator.pop(dialogContext);
-                          ScaffoldMessenger.of(this.context).showSnackBar(
-                            SnackBar(
-                                content: Text(
-                                    '${selectedCustomer!.name} registered!')),
-                          );
-                          // Update local state
-                          setState(() {
-                            _participants.add(participant);
-                          });
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                  content: Text(
+                                      '${selectedCustomer!.name} registered!')),
+                            );
+                            // Update local state
+                            setState(() {
+                              _participants.add(participant);
+                            });
+                          }
                         }
                       } catch (e) {
-                        ScaffoldMessenger.of(this.context).showSnackBar(
-                          SnackBar(content: Text('Error: $e')),
-                        );
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Error: $e')),
+                          );
+                        }
                       }
                     },
               child: const Text('Register'),

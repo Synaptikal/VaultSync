@@ -84,10 +84,12 @@ class _NotificationsScreenState extends State<NotificationsScreen>
 
   List<Map<String, dynamic>> _getFilteredNotifications(String filter) {
     if (filter == 'all') return _allNotifications;
-    if (filter == 'wants')
+    if (filter == 'wants') {
       return _allNotifications.where((n) => n['type'] == 'wants').toList();
-    if (filter == 'unread')
+    }
+    if (filter == 'unread') {
       return _allNotifications.where((n) => n['read'] == false).toList();
+    }
     return _allNotifications;
   }
 

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 
 /// Connectivity Service (PHASE 3 - Network Monitoring)
@@ -52,7 +53,7 @@ class ConnectivityService {
       final isConnected = _isConnected(result);
       _controller.add(isConnected);
 
-      print(
+      debugPrint(
           '[Connectivity] Status changed: ${isConnected ? 'ONLINE' : 'OFFLINE'}');
     });
   }

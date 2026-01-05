@@ -29,7 +29,7 @@ class ApiService {
           error.type == DioExceptionType.sendTimeout ||
           error.type == DioExceptionType.receiveTimeout ||
           error.type == DioExceptionType.connectionError) {
-        return NetworkException('Connection failed. You may be offline.');
+        return const NetworkException('Connection failed. You may be offline.');
       }
 
       if (error.response != null) {
@@ -43,16 +43,16 @@ class ApiService {
           case 400:
             return ValidationException(message);
           case 401:
-            return AuthenticationException(
+            return const AuthenticationException(
                 'Session expired. Please login again.');
           case 403:
-            return AuthorizationException('Access denied.');
+            return const AuthorizationException('Access denied.');
           case 404:
-            return NotFoundException('Resource not found.');
+            return const NotFoundException('Resource not found.');
           case 409:
             return ConflictException(message);
           case 500:
-            return ServerException('Server error. Please try again later.');
+            return const ServerException('Server error. Please try again later.');
         }
       }
     }
@@ -553,8 +553,9 @@ class ApiService {
   }) async {
     try {
       final queryParams = <String, dynamic>{};
-      if (startDate != null)
+      if (startDate != null) {
         queryParams['start_date'] = startDate.toIso8601String();
+      }
       if (endDate != null) queryParams['end_date'] = endDate.toIso8601String();
 
       final response = await _dio.get(
@@ -585,8 +586,9 @@ class ApiService {
       final queryParams = <String, dynamic>{
         'limit': limit,
       };
-      if (startDate != null)
+      if (startDate != null) {
         queryParams['start_date'] = startDate.toIso8601String();
+      }
       if (endDate != null) queryParams['end_date'] = endDate.toIso8601String();
 
       final response = await _dio.get(

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 import 'database_service.dart';
 import 'api_client.dart';
@@ -128,7 +129,7 @@ class SyncQueueService {
 
     if (existing.isEmpty) {
       await db.insert('sync_queue', entry.toMap());
-      print(
+      debugPrint(
           '[SyncQueue] Queued ${entry.operation} for ${entry.entityType}:${entry.entityUuid}');
     } else {
       // Update existing entry with new payload
@@ -138,7 +139,7 @@ class SyncQueueService {
         where: 'id = ?',
         whereArgs: [existing.first['id']],
       );
-      print(
+      debugPrint(
           '[SyncQueue] Updated queue entry for ${entry.entityType}:${entry.entityUuid}');
     }
   }
@@ -170,12 +171,12 @@ class SyncQueueService {
     int successCount = 0;
     int failureCount = 0;
 
-    print('[SyncQueue] Processing ${pending.length} pending operations');
+    debugPrint('[SyncQueue] Processing ${pending.length} pending operations');
 
     for (final entry in pending) {
       // Check if should retry (backoff logic)
       if (!entry.shouldRetry()) {
-        print(
+        debugPrint(
             '[SyncQueue] Max retries exceeded for ${entry.entityType}:${entry.entityUuid}');
         // Move to failed items table or notify user
         await _markAsFailed(entry);
@@ -197,7 +198,7 @@ class SyncQueueService {
       await Future.delayed(const Duration(milliseconds: 100));
     }
 
-    print(
+    debugPrint(
         '[SyncQueue] Sync complete: $successCount succeeded, $failureCount failed');
     return (successCount, failureCount);
   }
@@ -213,7 +214,7 @@ class SyncQueueService {
         case 'Transaction':
           return await _syncTransaction(entry);
         default:
-          print('[SyncQueue] Unknown entity type: ${entry.entityType}');
+          debugPrint('[SyncQueue] Unknown entity type: ${entry.entityType}');
           return false;
       }
     } on ApiException catch (e) {
@@ -314,7 +315,7 @@ class SyncQueueService {
   Future<void> _markAsFailed(SyncQueueEntry entry) async {
     // TODO: Move to failed_sync_items table for user review
     // For now, just log
-    print(
+    debugPrint(
         '[SyncQueue] PERMANENT FAILURE: ${entry.entityType}:${entry.entityUuid} - ${entry.lastError}');
     await _removeFromQueue(entry.id!);
   }

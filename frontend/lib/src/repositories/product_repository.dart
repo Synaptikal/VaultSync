@@ -1,4 +1,5 @@
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter/foundation.dart';
 import '../api/generated/export.dart';
 import '../datasources/local/product_local_datasource.dart';
 import '../datasources/remote/product_remote_datasource.dart';
@@ -63,7 +64,7 @@ class ProductRepository
       // Expected when offline, fall through to local
     } catch (e) {
       // Other errors, log but fall through to local
-      print('[ProductRepository] Remote fetch failed: $e');
+      debugPrint('[ProductRepository] Remote fetch failed: $e');
     }
 
     // Fallback to local cache
@@ -89,7 +90,7 @@ class ProductRepository
         return product;
       }
     } catch (e) {
-      print('[ProductRepository] Remote getById failed: $e');
+      debugPrint('[ProductRepository] Remote getById failed: $e');
     }
 
     return null;
@@ -112,10 +113,10 @@ class ProductRepository
         return synced;
       } on NetworkException {
         // Offline, already saved locally
-        print('[ProductRepository] Offline - product queued for sync');
+        debugPrint('[ProductRepository] Offline - product queued for sync');
       } catch (e) {
         // Server error but already saved locally
-        print('[ProductRepository] Sync failed but saved locally: $e');
+        debugPrint('[ProductRepository] Sync failed but saved locally: $e');
       }
     }
 
@@ -139,9 +140,9 @@ class ProductRepository
 
         return synced;
       } on NetworkException {
-        print('[ProductRepository] Offline - update queued for sync');
+        debugPrint('[ProductRepository] Offline - update queued for sync');
       } catch (e) {
-        print('[ProductRepository] Sync failed but saved locally: $e');
+        debugPrint('[ProductRepository] Sync failed but saved locally: $e');
       }
     }
 
@@ -161,9 +162,9 @@ class ProductRepository
         // Deletion confirmed, can hard delete locally
         await _local.hardDelete(id);
       } on NetworkException {
-        print('[ProductRepository] Offline - deletion queued for sync');
+        debugPrint('[ProductRepository] Offline - deletion queued for sync');
       } catch (e) {
-        print('[ProductRepository] Sync failed but deleted locally: $e');
+        debugPrint('[ProductRepository] Sync failed but deleted locally: $e');
       }
     }
   }
@@ -186,7 +187,7 @@ class ProductRepository
 
         return remoteResults;
       } catch (e) {
-        print('[ProductRepository] Remote search failed: $e');
+        debugPrint('[ProductRepository] Remote search failed: $e');
       }
     }
 
@@ -197,7 +198,7 @@ class ProductRepository
   Future<List<Product>> refresh() async {
     // Force fetch from server
     if (!await _isOnline) {
-      throw NetworkException('Cannot refresh while offline');
+      throw const NetworkException('Cannot refresh while offline');
     }
 
     final products = await _remote.getAll();
@@ -239,7 +240,8 @@ class ProductRepository
         }
         synced++;
       } catch (e) {
-        print('[ProductRepository] Failed to sync ${product.productUuid}: $e');
+        debugPrint(
+            '[ProductRepository] Failed to sync ${product.productUuid}: $e');
       }
     }
 
@@ -264,7 +266,7 @@ class ProductRepository
         await _local.insertBatch(remoteResults);
         return remoteResults;
       } catch (e) {
-        print('[ProductRepository] Remote getByCategory failed: $e');
+        debugPrint('[ProductRepository] Remote getByCategory failed: $e');
       }
     }
 
@@ -300,7 +302,7 @@ class ProductRepository
       await _remote.update(product);
       await _local.markSynced(id);
     } catch (e) {
-      print('[ProductRepository] Retry sync failed for $id: $e');
+      debugPrint('[ProductRepository] Retry sync failed for $id: $e');
       rethrow;
     }
   }
@@ -318,7 +320,7 @@ class ProductRepository
         }
         return product;
       } catch (e) {
-        print('[ProductRepository] Barcode lookup failed: $e');
+        debugPrint('[ProductRepository] Barcode lookup failed: $e');
       }
     }
 

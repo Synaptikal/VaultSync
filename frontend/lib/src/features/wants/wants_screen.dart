@@ -51,7 +51,7 @@ class _WantsScreenState extends State<WantsScreen> {
     await showDialog(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
+        builder: (sbContext, setDialogState) => AlertDialog(
           title: Text('Create Wants List for ${_selectedCustomer!.name}'),
           content: SizedBox(
             width: 500,
@@ -133,18 +133,22 @@ class _WantsScreenState extends State<WantsScreen> {
                         await context
                             .read<WantsProvider>()
                             .createWantsList(wantsList);
-                        if (mounted) Navigator.pop(dialogContext);
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content:
-                                    Text('Wants list created successfully!')),
-                          );
+                        if (dialogContext.mounted) {
+                          Navigator.pop(dialogContext);
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                  content:
+                                      Text('Wants list created successfully!')),
+                            );
+                          }
                         }
                       } catch (e) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Error: $e')),
-                        );
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Error: $e')),
+                          );
+                        }
                       }
                     },
               child: const Text('Create List'),
