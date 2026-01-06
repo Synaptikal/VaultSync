@@ -55,6 +55,8 @@ pub struct AppState {
     pub system: state_groups::SystemServices,
     pub sync_actor: crate::sync::SyncActorHandle,
     pub config: Arc<crate::config::Config>,
+    pub metrics: Arc<crate::monitoring::MetricsRegistry>,
+    pub alerting: Arc<crate::monitoring::AlertingService>,
 }
 
 pub fn create_router(state: AppState, config: &crate::config::Config) -> Router {
@@ -424,16 +426,24 @@ pub fn create_router(state: AppState, config: &crate::config::Config) -> Router 
         }
     };
 
+    let middleware_state = state.clone();
+
     Router::new()
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
         // Health & Monitoring (Phase 10)
         .route("/health", get(handlers::health_check))
         .route("/health/detailed", get(handlers::health_check_detailed))
         .route("/health/alerts", get(handlers::get_alerts))
+        .route("/metrics", get(handlers::metrics_prometheus))
+        .route("/metrics/json", get(handlers::metrics_json))
         .merge(auth_routes)
         .merge(manager_routes)
         .merge(api_routes)
         .layer(cors_layer)
+        .layer(axum::middleware::from_fn_with_state(
+            middleware_state,
+            middleware::metrics_middleware,
+        ))
         // Request ID middleware for tracing (TASK-202)
         .layer(axum::middleware::from_fn(
             crate::monitoring::request_id_middleware,

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:sqflite/sqflite.dart';
 import '../../api/generated/export.dart';
 import '../../services/database_service.dart';
@@ -203,7 +205,9 @@ class ProductLocalDataSource {
       'collector_number': product.collectorNumber,
       'barcode': product.barcode,
       'release_year': product.releaseYear,
-      'metadata': product.metadata?.toString(),
+      // FIX: Use jsonEncode to produce valid JSON string (not Dart .toString())
+      'metadata':
+          product.metadata != null ? jsonEncode(product.metadata) : null,
       'is_synced': isSynced ? 1 : 0,
       'created_at': DateTime.now().toIso8601String(),
       'updated_at': DateTime.now().toIso8601String(),
@@ -221,9 +225,9 @@ class ProductLocalDataSource {
       collectorNumber: map['collector_number'] as String?,
       barcode: map['barcode'] as String?,
       releaseYear: map['release_year'] as int?,
+      // FIX: Use jsonDecode to parse JSON string back to Map
       metadata: map['metadata'] != null
-          ? map['metadata'] as Map<String,
-              dynamic> // Warning: needs jsonDecode if storing as string
+          ? jsonDecode(map['metadata'] as String) as Map<String, dynamic>
           : null,
       deletedAt: map['deleted_at'] != null
           ? DateTime.parse(map['deleted_at'] as String)
@@ -238,5 +242,18 @@ class ProductLocalDataSource {
       (e) => e.toString().split('.').last == categoryStr,
       orElse: () => Category.other,
     );
+  }
+
+  /// Get product by barcode (TASK-AUD-003a: Enable offline barcode lookup)
+  Future<Product?> getByBarcode(String barcode) async {
+    final db = await dbService.database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'products',
+      where: 'barcode = ? AND deleted_at IS NULL',
+      whereArgs: [barcode],
+      limit: 1,
+    );
+    if (maps.isEmpty) return null;
+    return _fromMap(maps.first);
   }
 }

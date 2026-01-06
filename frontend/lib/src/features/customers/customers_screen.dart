@@ -3,8 +3,12 @@ import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 import 'package:intl/intl.dart';
 import '../../providers/customer_provider.dart';
-import '../../services/api_service.dart';
 import '../../api/generated/models/customer.dart';
+
+/// Customers Screen (TASK-AUD-001j: Refactored to use CustomerProvider)
+///
+/// Now uses CustomerProvider for all operations including history and store credit.
+/// Enables offline-first customer management.
 
 class CustomersScreen extends StatefulWidget {
   const CustomersScreen({super.key});
@@ -29,16 +33,6 @@ class _CustomersScreenState extends State<CustomersScreen> {
     _searchController.dispose();
     super.dispose();
   }
-
-  // ... _showAddCustomerDialog and _showCustomerDetails methods remain filtered ...
-
-  // (Assuming _showAddCustomerDialog and _showCustomerDetails are preserved by matching context, but I need to be careful with range)
-  // I will just replace the build method and the controller parts if possible, but the earlier tool call targeted lines 81-140.
-  // I need to add the controller field at the top of the class.
-
-  // Let's do this in two chunks or replace the whole start of class.
-
-  // Chunk 1: Add controller field
 
   Future<void> _showAddCustomerDialog() async {
     final nameController = TextEditingController();
@@ -72,7 +66,6 @@ class _CustomersScreenState extends State<CustomersScreen> {
           FilledButton(
               onPressed: () async {
                 try {
-                  // Use screen context for Provider to be safe, or dialogContext is also fine as it's below
                   await context
                       .read<CustomerProvider>()
                       .addCustomer(<String, dynamic>{
@@ -88,20 +81,23 @@ class _CustomersScreenState extends State<CustomersScreen> {
                     'created_at': DateTime.now().toIso8601String(),
                   });
 
-                  // Use dialogContext to pop
                   if (dialogContext.mounted) {
                     Navigator.pop(dialogContext);
                   }
 
-                  // Use screen context for SnackBar
                   if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                        content: Text('Customer Added Successfully')));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Customer Added Successfully'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
                   }
                 } catch (e) {
                   if (mounted) {
-                    ScaffoldMessenger.of(context)
-                        .showSnackBar(SnackBar(content: Text('Error: $e')));
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text('Error: $e'),
+                        backgroundColor: Colors.red));
                   }
                 }
               },
@@ -121,7 +117,32 @@ class _CustomersScreenState extends State<CustomersScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Customers')),
+      appBar: AppBar(
+        title: const Text('Customers'),
+        actions: [
+          // Offline indicator
+          Consumer<CustomerProvider>(
+            builder: (context, provider, _) {
+              if (provider.isOffline) {
+                return const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 8),
+                  child: Chip(
+                    avatar: Icon(Icons.cloud_off, size: 16),
+                    label: Text('Offline'),
+                    backgroundColor: Colors.orange,
+                  ),
+                );
+              }
+              return const SizedBox.shrink();
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () => context.read<CustomerProvider>().refresh(),
+            tooltip: 'Refresh',
+          ),
+        ],
+      ),
       body: Column(
         children: [
           Padding(
@@ -141,10 +162,26 @@ class _CustomersScreenState extends State<CustomersScreen> {
           Expanded(
             child: Consumer<CustomerProvider>(
               builder: (context, provider, child) {
-                if (provider.isLoading) {
+                if (provider.isLoading && provider.customers.isEmpty) {
                   return const Center(child: CircularProgressIndicator());
-                } else if (provider.error != null) {
-                  return Center(child: Text('Error: ${provider.error}'));
+                } else if (provider.error != null &&
+                    provider.customers.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.error_outline,
+                            size: 48, color: Colors.red),
+                        const SizedBox(height: 16),
+                        Text('Error: ${provider.error}'),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: () => provider.loadCustomers(),
+                          child: const Text('Retry'),
+                        ),
+                      ],
+                    ),
+                  );
                 }
 
                 // Filter customers
@@ -163,31 +200,35 @@ class _CustomersScreenState extends State<CustomersScreen> {
                       child: Text('No customers found matching query'));
                 }
 
-                return ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: customers.length,
-                  itemBuilder: (context, index) {
-                    final customer = customers[index];
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      child: ListTile(
-                        leading: CircleAvatar(
-                            child: Text(customer.name.isNotEmpty
-                                ? customer.name[0].toUpperCase()
-                                : '?')),
-                        title: Text(customer.name),
-                        subtitle: Text(customer.email ??
-                            customer.phone ??
-                            'No contact info'),
-                        trailing: Text(
-                          '\$${customer.storeCredit.toStringAsFixed(2)}',
-                          style: const TextStyle(
-                              fontWeight: FontWeight.bold, color: Colors.green),
+                return RefreshIndicator(
+                  onRefresh: () => provider.refresh(),
+                  child: ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: customers.length,
+                    itemBuilder: (context, index) {
+                      final customer = customers[index];
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        child: ListTile(
+                          leading: CircleAvatar(
+                              child: Text(customer.name.isNotEmpty
+                                  ? customer.name[0].toUpperCase()
+                                  : '?')),
+                          title: Text(customer.name),
+                          subtitle: Text(customer.email ??
+                              customer.phone ??
+                              'No contact info'),
+                          trailing: Text(
+                            '\$${customer.storeCredit.toStringAsFixed(2)}',
+                            style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.green),
+                          ),
+                          onTap: () => _showCustomerDetails(customer),
                         ),
-                        onTap: () => _showCustomerDetails(customer),
-                      ),
-                    );
-                  },
+                      );
+                    },
+                  ),
                 );
               },
             ),
@@ -212,14 +253,41 @@ class _CustomerDetailsDialog extends StatefulWidget {
 }
 
 class _CustomerDetailsDialogState extends State<_CustomerDetailsDialog> {
-  late Future<List<Map<String, dynamic>>> _historyFuture;
+  List<Map<String, dynamic>> _history = [];
+  bool _isLoading = true;
+  String? _error;
 
   @override
   void initState() {
     super.initState();
-    _historyFuture = context
-        .read<ApiService>()
-        .getCustomerHistory(widget.customer.customerUuid);
+    _loadHistory();
+  }
+
+  Future<void> _loadHistory() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      // Use CustomerProvider instead of ApiService
+      final provider = context.read<CustomerProvider>();
+      final history =
+          await provider.getCustomerHistory(widget.customer.customerUuid);
+      if (mounted) {
+        setState(() {
+          _history = history;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   Future<void> _addCredit() async {
@@ -243,27 +311,30 @@ class _CustomerDetailsDialogState extends State<_CustomerDetailsDialog> {
               final amount = double.tryParse(amountController.text);
               if (amount != null) {
                 try {
-                  await context
-                      .read<ApiService>()
-                      .updateStoreCredit(widget.customer.customerUuid, amount);
+                  // Use CustomerProvider instead of ApiService
+                  final provider = context.read<CustomerProvider>();
+                  await provider.updateStoreCredit(
+                      widget.customer.customerUuid, amount);
+
                   if (dialogContext.mounted) {
                     Navigator.pop(dialogContext); // Close add credit dialog
-                    if (mounted) {
-                      context
-                          .read<CustomerProvider>()
-                          .loadCustomers(); // Refresh list
-                      setState(() {
-                        // Refresh history
-                        _historyFuture = context
-                            .read<ApiService>()
-                            .getCustomerHistory(widget.customer.customerUuid);
-                      });
-                    }
+                  }
+
+                  if (mounted) {
+                    // Reload history
+                    await _loadHistory();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Credit added successfully'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
                   }
                 } catch (e) {
                   if (mounted) {
-                    ScaffoldMessenger.of(context)
-                        .showSnackBar(SnackBar(content: Text('Error: $e')));
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text('Error: $e'),
+                        backgroundColor: Colors.red));
                   }
                 }
               }
@@ -277,6 +348,11 @@ class _CustomerDetailsDialogState extends State<_CustomerDetailsDialog> {
 
   @override
   Widget build(BuildContext context) {
+    // Get updated customer data from provider
+    final provider = context.watch<CustomerProvider>();
+    final currentCustomer =
+        provider.getById(widget.customer.customerUuid) ?? widget.customer;
+
     return Dialog(
       child: Container(
         width: 500,
@@ -289,16 +365,16 @@ class _CustomerDetailsDialogState extends State<_CustomerDetailsDialog> {
               children: [
                 CircleAvatar(
                     radius: 30,
-                    child: Text(widget.customer.name[0].toUpperCase(),
+                    child: Text(currentCustomer.name[0].toUpperCase(),
                         style: const TextStyle(fontSize: 24))),
                 const SizedBox(width: 16),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(widget.customer.name,
+                    Text(currentCustomer.name,
                         style: Theme.of(context).textTheme.headlineSmall),
-                    Text(widget.customer.email ??
-                        widget.customer.phone ??
+                    Text(currentCustomer.email ??
+                        currentCustomer.phone ??
                         'No contact info'),
                   ],
                 ),
@@ -308,7 +384,7 @@ class _CustomerDetailsDialogState extends State<_CustomerDetailsDialog> {
                   children: [
                     const Text('Store Credit',
                         style: TextStyle(color: Colors.grey)),
-                    Text('\$${widget.customer.storeCredit.toStringAsFixed(2)}',
+                    Text('\$${currentCustomer.storeCredit.toStringAsFixed(2)}',
                         style: const TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
@@ -340,68 +416,79 @@ class _CustomerDetailsDialogState extends State<_CustomerDetailsDialog> {
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             Expanded(
-              child: FutureBuilder<List<Map<String, dynamic>>>(
-                future: _historyFuture,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  if (snapshot.hasError) {
-                    return Center(child: Text('Error: ${snapshot.error}'));
-                  }
-                  final history = snapshot.data ?? [];
-                  if (history.isEmpty) {
-                    return const Center(child: Text('No transaction history.'));
-                  }
-
-                  return ListView.separated(
-                    itemCount: history.length,
-                    separatorBuilder: (context, index) => const Divider(),
-                    itemBuilder: (context, index) {
-                      final tx = history[index];
-                      final date = DateTime.parse(tx['timestamp']);
-                      final type = tx['transaction_type'];
-
-                      Color typeColor = Colors.grey;
-                      IconData typeIcon = Icons.receipt;
-
-                      switch (type) {
-                        case 'Sale':
-                          typeColor = Colors.green;
-                          typeIcon = Icons.shopping_cart;
-                          break;
-                        case 'Buy':
-                          typeColor = Colors.orange;
-                          typeIcon = Icons.store;
-                          break;
-                        case 'Trade':
-                          typeColor = Colors.blue;
-                          typeIcon = Icons.swap_horiz;
-                          break;
-                        case 'Return':
-                          typeColor = Colors.red;
-                          typeIcon = Icons.assignment_return;
-                          break;
-                      }
-
-                      return ListTile(
-                        leading: Icon(typeIcon, color: typeColor),
-                        title: Text(type),
-                        subtitle: Text(
-                            DateFormat.yMMMd().add_jm().format(date.toLocal())),
-                        // We could show total amount if we summed items, but for now just ID
-                        trailing: Text(
-                            tx['transaction_uuid'].toString().substring(0, 8),
-                            style: const TextStyle(fontFamily: 'monospace')),
-                      );
-                    },
-                  );
-                },
-              ),
+              child: _buildHistoryList(),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildHistoryList() {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_error != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, size: 48, color: Colors.red),
+            const SizedBox(height: 8),
+            Text('Error: $_error'),
+            const SizedBox(height: 8),
+            ElevatedButton(
+              onPressed: _loadHistory,
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_history.isEmpty) {
+      return const Center(child: Text('No transaction history.'));
+    }
+
+    return ListView.separated(
+      itemCount: _history.length,
+      separatorBuilder: (context, index) => const Divider(),
+      itemBuilder: (context, index) {
+        final tx = _history[index];
+        final date = DateTime.parse(tx['timestamp']);
+        final type = tx['transaction_type'];
+
+        Color typeColor = Colors.grey;
+        IconData typeIcon = Icons.receipt;
+
+        switch (type) {
+          case 'Sale':
+            typeColor = Colors.green;
+            typeIcon = Icons.shopping_cart;
+            break;
+          case 'Buy':
+            typeColor = Colors.orange;
+            typeIcon = Icons.store;
+            break;
+          case 'Trade':
+            typeColor = Colors.blue;
+            typeIcon = Icons.swap_horiz;
+            break;
+          case 'Return':
+            typeColor = Colors.red;
+            typeIcon = Icons.assignment_return;
+            break;
+        }
+
+        return ListTile(
+          leading: Icon(typeIcon, color: typeColor),
+          title: Text(type),
+          subtitle: Text(DateFormat.yMMMd().add_jm().format(date.toLocal())),
+          trailing: Text(tx['transaction_uuid'].toString().substring(0, 8),
+              style: const TextStyle(fontFamily: 'monospace')),
+        );
+      },
     );
   }
 }

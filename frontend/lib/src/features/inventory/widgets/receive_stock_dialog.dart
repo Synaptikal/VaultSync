@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../services/api_service.dart';
 import '../../../api/generated/models/product.dart';
 import 'add_serialized_item_dialog.dart';
 import 'bulk_add_dialog.dart';
 import 'create_product_dialog.dart';
 import '../../../providers/product_provider.dart';
+
+/// Receive Stock Dialog (TASK-AUD-001c: Refactored to use ProductProvider)
+///
+/// Now uses ProductProvider for search instead of direct ApiService calls.
+/// This enables offline product search from local cache.
 
 class ReceiveStockDialog extends StatefulWidget {
   const ReceiveStockDialog({super.key});
@@ -19,19 +23,29 @@ class _ReceiveStockDialogState extends State<ReceiveStockDialog> {
   List<Product> _searchResults = [];
   bool _isLoading = false;
   Product? _selectedProduct;
+  String? _error;
 
   Future<void> _search() async {
     if (_searchController.text.isEmpty) return;
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
     try {
-      final results = await context
-          .read<ApiService>()
-          .searchProducts(query: _searchController.text);
-      setState(() => _searchResults = results);
+      // Use ProductProvider for offline-first search
+      final provider = context.read<ProductProvider>();
+      await provider.loadProducts(query: _searchController.text);
+      if (mounted) {
+        setState(() => _searchResults = provider.products);
+      }
     } catch (e) {
-      // Handle error
+      if (mounted) {
+        setState(() => _error = 'Search failed: $e');
+      }
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -62,6 +76,18 @@ class _ReceiveStockDialogState extends State<ReceiveStockDialog> {
             const Text('Receive Stock',
                 style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
+            // Error display
+            if (_error != null)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(8),
+                margin: const EdgeInsets.only(bottom: 8),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade100,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(_error!, style: const TextStyle(color: Colors.red)),
+              ),
             if (_selectedProduct == null) ...[
               Row(
                 children: [

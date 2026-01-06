@@ -21,16 +21,16 @@ use std::path::{Path, PathBuf};
 pub struct BackupConfig {
     /// Directory to store backups
     pub backup_dir: PathBuf,
-    
+
     /// Path to the database file
     pub database_path: PathBuf,
-    
+
     /// Number of days to retain backups
     pub retention_days: u32,
-    
+
     /// Maximum number of backups to keep (regardless of age)
     pub max_backups: u32,
-    
+
     /// Whether to create checksums for backups
     pub create_checksum: bool,
 }
@@ -173,22 +173,18 @@ impl BackupService {
         // Calculate checksum if enabled
         let checksum = if self.config.create_checksum {
             let checksum = self.calculate_checksum(&backup_path)?;
-            
+
             // Write checksum to file
             let checksum_path = backup_path.with_extension("db.sha256");
             let mut checksum_file = fs::File::create(&checksum_path)?;
             writeln!(checksum_file, "{}  {}", checksum, backup_filename)?;
-            
+
             Some(checksum)
         } else {
             None
         };
 
-        tracing::info!(
-            "Backup created: {} ({} bytes)",
-            backup_filename,
-            size_bytes
-        );
+        tracing::info!("Backup created: {} ({} bytes)", backup_filename, size_bytes);
 
         Ok(BackupResult {
             success: true,
@@ -238,9 +234,9 @@ impl BackupService {
                 let result = sqlx::query("SELECT COUNT(*) FROM sqlite_master")
                     .fetch_one(&pool)
                     .await;
-                
+
                 pool.close().await;
-                
+
                 match result {
                     Ok(_) => {
                         tracing::info!("Backup verified: {:?}", backup_path);
@@ -262,66 +258,68 @@ impl BackupService {
     /// TASK-224: Apply retention policy and delete old backups
     pub async fn apply_retention_policy(&self) -> Result<Vec<PathBuf>> {
         let mut deleted = Vec::new();
-        
+
         // Get all backup files
         let mut backups = self.list_backups().await?;
-        
+
         // Sort by creation date (newest first)
         backups.sort_by(|a, b| b.created_at.cmp(&a.created_at));
-        
+
         let cutoff_date = Utc::now() - Duration::days(self.config.retention_days as i64);
-        
+
         for (index, backup) in backups.iter().enumerate() {
-            let should_delete = 
+            let should_delete =
                 // Delete if over max count
                 index >= self.config.max_backups as usize ||
                 // Delete if older than retention period (but keep minimum of 1)
                 (backup.created_at < cutoff_date && index > 0);
-            
+
             if should_delete {
                 if let Err(e) = fs::remove_file(&backup.path) {
                     tracing::warn!("Failed to delete old backup {:?}: {}", backup.path, e);
                 } else {
                     tracing::info!("Deleted old backup: {:?}", backup.path);
                     deleted.push(backup.path.clone());
-                    
+
                     // Also delete checksum file if exists
                     let checksum_path = backup.path.with_extension("db.sha256");
                     let _ = fs::remove_file(checksum_path);
                 }
             }
         }
-        
+
         Ok(deleted)
     }
 
     /// List all available backups
     pub async fn list_backups(&self) -> Result<Vec<BackupInfo>> {
         self.ensure_backup_dir()?;
-        
+
         let mut backups = Vec::new();
-        
+
         for entry in fs::read_dir(&self.config.backup_dir)? {
             let entry = entry?;
             let path = entry.path();
-            
+
             // Only include .db files that match our naming pattern
             if path.extension().map(|e| e == "db").unwrap_or(false) {
-                let filename = path.file_name()
+                let filename = path
+                    .file_name()
                     .unwrap_or_default()
                     .to_string_lossy()
                     .to_string();
-                
+
                 if !filename.starts_with("vaultsync_backup_") {
                     continue;
                 }
-                
+
                 let metadata = fs::metadata(&path)?;
-                let created_at = metadata.created()
+                let created_at = metadata
+                    .created()
                     .or_else(|_| metadata.modified())
                     .map(|t| DateTime::<Utc>::from(t))
                     .unwrap_or_else(|_| Utc::now());
-                
+
                 // Check for checksum file
                 let checksum_path = path.with_extension("db.sha256");
                 let checksum = if checksum_path.exists() {
@@ -331,7 +329,7 @@ impl BackupService {
                 } else {
                     None
                 };
-                
+
                 backups.push(BackupInfo {
                     filename,
                     path,
@@ -342,10 +340,10 @@ impl BackupService {
                 });
             }
         }
-        
+
         // Sort by date (newest first)
         backups.sort_by(|a, b| b.created_at.cmp(&a.created_at));
-        
+
         Ok(backups)
     }
 
@@ -364,8 +362,7 @@ impl BackupService {
         }
 
         // Copy backup to database location
-        fs::copy(backup_path, &self.config.database_path)
-            .context("Failed to restore backup")?;
+        fs::copy(backup_path, &self.config.database_path).context("Failed to restore backup")?;
 
         tracing::info!(
             "Database restored from {:?}. Pre-restore backup saved to {:?}",
@@ -385,7 +382,7 @@ mod tests {
     fn test_backup_filename_format() {
         let service = BackupService::new(BackupConfig::default());
         let filename = service.generate_backup_filename();
-        
+
         assert!(filename.starts_with("vaultsync_backup_"));
         assert!(filename.ends_with(".db"));
     }
@@ -393,7 +390,7 @@ mod tests {
     #[test]
     fn test_default_config() {
         let config = BackupConfig::default();
-        
+
         assert_eq!(config.retention_days, 30);
         assert_eq!(config.max_backups, 50);
         assert!(config.create_checksum);

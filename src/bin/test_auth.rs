@@ -24,7 +24,7 @@ fn main() {
             } else {
                 println!("❌ Verification FAILED (returned false)");
             }
-        },
+        }
         Err(e) => eprintln!("❌ Verification ERROR: {}", e),
     }
 
@@ -36,7 +36,7 @@ fn main() {
             } else {
                 println!("❌ Wrong password accepted!");
             }
-        },
+        }
         Err(e) => eprintln!("❌ Verification ERROR: {}", e),
     }
 }

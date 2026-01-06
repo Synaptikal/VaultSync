@@ -32,7 +32,7 @@ class DatabaseService {
 
     return await openDatabase(
       path,
-      version: 3, // Increment when schema changes
+      version: 4, // Increment when schema changes (v4: inventory columns)
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -142,6 +142,27 @@ class DatabaseService {
           updated_at TEXT NOT NULL
         )
       ''');
+    }
+
+    if (oldVersion < 4) {
+      // Migration to version 4 - Extend inventory table (TASK-AUD-001e)
+      // Add missing columns for full InventoryItem support
+      await db.execute('ALTER TABLE inventory ADD COLUMN bin_location TEXT');
+      await db.execute('ALTER TABLE inventory ADD COLUMN cost_basis REAL');
+      await db.execute(
+          'ALTER TABLE inventory ADD COLUMN min_stock_level INTEGER DEFAULT 0');
+      await db
+          .execute('ALTER TABLE inventory ADD COLUMN max_stock_level INTEGER');
+      await db
+          .execute('ALTER TABLE inventory ADD COLUMN reorder_point INTEGER');
+      await db.execute('ALTER TABLE inventory ADD COLUMN supplier_uuid TEXT');
+      await db.execute('ALTER TABLE inventory ADD COLUMN received_date TEXT');
+      await db
+          .execute('ALTER TABLE inventory ADD COLUMN last_counted_date TEXT');
+      await db.execute('ALTER TABLE inventory ADD COLUMN last_sold_date TEXT');
+      await db.execute('ALTER TABLE inventory ADD COLUMN variant_type TEXT');
+      await db
+          .execute('ALTER TABLE inventory ADD COLUMN serialized_details TEXT');
     }
   }
 

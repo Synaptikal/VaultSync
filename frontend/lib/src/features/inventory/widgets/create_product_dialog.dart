@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
-import '../../../services/api_service.dart';
+import '../../../api/generated/models/product.dart';
+import '../../../providers/product_provider.dart';
+
+/// Create Product Dialog (TASK-AUD-001g: Refactored to use ProductProvider)
+///
+/// Now uses ProductProvider.addProduct() instead of direct ApiService calls.
+/// This enables offline product creation with local caching.
 
 class CreateProductDialog extends StatefulWidget {
   const CreateProductDialog({super.key});
@@ -30,6 +36,7 @@ class _CreateProductDialogState extends State<CreateProductDialog> {
   ];
 
   bool _isSaving = false;
+  String? _error;
 
   @override
   void dispose() {
@@ -42,7 +49,10 @@ class _CreateProductDialogState extends State<CreateProductDialog> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    setState(() => _isSaving = true);
+    setState(() {
+      _isSaving = true;
+      _error = null;
+    });
 
     try {
       final data = {
@@ -57,16 +67,35 @@ class _CreateProductDialogState extends State<CreateProductDialog> {
         'metadata': {},
       };
 
-      final product = await context.read<ApiService>().createProduct(data);
+      // Use ProductProvider for offline-first product creation
+      final provider = context.read<ProductProvider>();
+      await provider.addProduct(data);
+
+      // Get the created product (last in list after reload)
+      final products = provider.products;
+      Product? createdProduct;
+      if (products.isNotEmpty) {
+        // Find the product we just created by UUID
+        final uuid = data['product_uuid'] as String;
+        createdProduct =
+            products.where((p) => p.productUuid == uuid).firstOrNull;
+      }
+
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Created ${product.name}')));
-        Navigator.pop(context, product);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Created ${_nameController.text}'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        Navigator.pop(context, createdProduct);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Error: $e')));
+        setState(() => _error = e.toString());
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);
@@ -85,8 +114,21 @@ class _CreateProductDialogState extends State<CreateProductDialog> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                // Error display
+                if (_error != null)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(8),
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade100,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(_error!,
+                        style: const TextStyle(color: Colors.red)),
+                  ),
                 DropdownButtonFormField<String>(
-                  initialValue: _category,
+                  value: _category,
                   decoration: const InputDecoration(labelText: 'Category'),
                   items: _categories
                       .map((c) => DropdownMenuItem(value: c, child: Text(c)))

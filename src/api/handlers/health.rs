@@ -52,8 +52,7 @@ pub async fn health_check_detailed(State(state): State<AppState>) -> impl IntoRe
 }
 
 pub async fn get_alerts(State(state): State<AppState>) -> impl IntoResponse {
-    let alerting_service = crate::monitoring::AlertingService::new(state.db.clone());
-    let alerts = alerting_service.check_all().await;
+    let alerts = state.alerting.check_all().await;
 
     let severity_counts = alerts.iter().fold((0, 0, 0), |mut acc, alert| {
         match alert.severity {
@@ -74,6 +73,18 @@ pub async fn get_alerts(State(state): State<AppState>) -> impl IntoResponse {
             "alerts": alerts
         })),
     )
+}
+
+pub async fn metrics_prometheus(State(state): State<AppState>) -> impl IntoResponse {
+    (
+        StatusCode::OK,
+        [("Content-Type", "text/plain; charset=utf-8")],
+        state.metrics.render_prometheus(),
+    )
+}
+
+pub async fn metrics_json(State(state): State<AppState>) -> impl IntoResponse {
+    (StatusCode::OK, axum::Json(state.metrics.render_json()))
 }
 
 #[derive(Deserialize)]

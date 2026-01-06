@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
-import '../../../services/api_service.dart';
 import '../../../api/generated/models/product.dart';
 import '../../../api/generated/models/condition.dart';
 import '../../../api/generated/models/inventory_item.dart';
+import '../../../providers/inventory_provider.dart';
 import 'package:file_selector/file_selector.dart';
 
 /// Dialog for adding or editing serialized/graded items with detailed specs
+/// (TASK-AUD-001i: Refactored to use InventoryProvider for offline-first)
 class AddSerializedItemDialog extends StatefulWidget {
   final Product product;
   final InventoryItem? existingItem; // null = Add mode, non-null = Edit mode
@@ -44,6 +45,8 @@ class _AddSerializedItemDialogState extends State<AddSerializedItemDialog> {
   bool _hasSubgrades = false;
   bool _isSigned = false;
   String _autoGrade = '10';
+  bool _isSaving = false;
+  String? _error;
 
   final List<String> _graders = [
     'PSA',
@@ -182,6 +185,11 @@ class _AddSerializedItemDialogState extends State<AddSerializedItemDialog> {
   Future<void> _submitItem() async {
     if (!_formKey.currentState!.validate()) return;
 
+    setState(() {
+      _isSaving = true;
+      _error = null;
+    });
+
     try {
       final serializedDetails = {
         'grader': _selectedGrader,
@@ -213,39 +221,46 @@ class _AddSerializedItemDialogState extends State<AddSerializedItemDialog> {
       final inventoryUuid =
           isEdit ? widget.existingItem!.inventoryUuid : const Uuid().v4();
 
-      final inventoryData = {
-        'inventory_uuid': inventoryUuid,
-        'product_uuid': widget.product.productUuid,
-        'condition': _selectedCondition.toJson(),
-        'variant_type': null,
-        'quantity_on_hand': isEdit ? widget.existingItem!.quantityOnHand : 1,
-        'location_tag': _locationTag,
-        'specific_price': double.tryParse(_priceController.text),
-        'serialized_details': serializedDetails,
-      };
+      // Create InventoryItem model
+      final item = InventoryItem(
+        inventoryUuid: inventoryUuid,
+        productUuid: widget.product.productUuid,
+        condition: _selectedCondition,
+        quantityOnHand: isEdit ? widget.existingItem!.quantityOnHand : 1,
+        locationTag: _locationTag,
+        specificPrice: double.tryParse(_priceController.text),
+        serializedDetails: serializedDetails,
+        minStockLevel: isEdit ? widget.existingItem!.minStockLevel : 0,
+      );
 
-      final apiService = context.read<ApiService>();
+      // Use InventoryProvider for offline-first operations
+      final provider = context.read<InventoryProvider>();
       if (isEdit) {
-        await apiService.updateInventory(inventoryUuid, inventoryData);
+        await provider.updateItem(item);
       } else {
-        await apiService.addInventory(inventoryData);
+        await provider.addItem(item);
       }
 
       if (mounted) {
         Navigator.pop(context, true);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text(isEdit
-                  ? 'Updated ${widget.product.name}'
-                  : 'Added graded ${widget.product.name}')),
+            content: Text(isEdit
+                ? 'Updated ${widget.product.name}'
+                : 'Added graded ${widget.product.name}'),
+            backgroundColor: Colors.green,
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
+        setState(() => _error = e.toString());
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
         );
       }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
     }
   }
 
@@ -309,6 +324,20 @@ class _AddSerializedItemDialogState extends State<AddSerializedItemDialog> {
                 ),
                 const Divider(height: 32),
 
+                // Error display
+                if (_error != null)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(8),
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade100,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(_error!,
+                        style: const TextStyle(color: Colors.red)),
+                  ),
+
                 // Grading Info
                 const Text('Grading Details',
                     style: TextStyle(fontWeight: FontWeight.bold)),
@@ -317,7 +346,7 @@ class _AddSerializedItemDialogState extends State<AddSerializedItemDialog> {
                   children: [
                     Expanded(
                       child: DropdownButtonFormField<String>(
-                        initialValue: _selectedGrader,
+                        value: _selectedGrader,
                         decoration: const InputDecoration(
                             labelText: 'Grader', border: OutlineInputBorder()),
                         items: _graders
@@ -330,7 +359,7 @@ class _AddSerializedItemDialogState extends State<AddSerializedItemDialog> {
                     const SizedBox(width: 16),
                     Expanded(
                       child: DropdownButtonFormField<String>(
-                        initialValue: _selectedGrade,
+                        value: _selectedGrade,
                         decoration: const InputDecoration(
                             labelText: 'Grade', border: OutlineInputBorder()),
                         items: _grades
@@ -390,7 +419,7 @@ class _AddSerializedItemDialogState extends State<AddSerializedItemDialog> {
                 ),
                 if (_isSigned) ...[
                   DropdownButtonFormField<String>(
-                    initialValue: _autoGrade,
+                    value: _autoGrade,
                     decoration: const InputDecoration(
                         labelText: 'Auto Grade', border: OutlineInputBorder()),
                     items: _autoGrades
@@ -435,7 +464,7 @@ class _AddSerializedItemDialogState extends State<AddSerializedItemDialog> {
                     const SizedBox(width: 16),
                     Expanded(
                       child: DropdownButtonFormField<String>(
-                        initialValue: _locationTag,
+                        value: _locationTag,
                         decoration: const InputDecoration(
                             labelText: 'Location',
                             border: OutlineInputBorder()),
@@ -459,9 +488,15 @@ class _AddSerializedItemDialogState extends State<AddSerializedItemDialog> {
                         child: const Text('Cancel')),
                     const SizedBox(width: 16),
                     FilledButton.icon(
-                      onPressed: _submitItem,
-                      icon: const Icon(Icons.add),
-                      label: const Text('Add Item'),
+                      onPressed: _isSaving ? null : _submitItem,
+                      icon: _isSaving
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.add),
+                      label: Text(widget.isEditMode ? 'Update' : 'Add Item'),
                     ),
                   ],
                 ),

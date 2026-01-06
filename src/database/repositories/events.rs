@@ -1,7 +1,7 @@
-use sqlx::{SqlitePool, Row};
-use uuid::Uuid;
-use crate::errors::Result;
 use crate::core::{Event, EventParticipant};
+use crate::errors::Result;
+use sqlx::{Row, SqlitePool};
+use uuid::Uuid;
 
 use super::sync::SyncRepository;
 
@@ -12,12 +12,16 @@ pub struct EventRepository {
 }
 
 impl EventRepository {
-     pub fn new(pool: SqlitePool, sync: SyncRepository) -> Self {
+    pub fn new(pool: SqlitePool, sync: SyncRepository) -> Self {
         Self { pool, sync }
     }
 
     pub async fn insert(&self, event: &Event) -> Result<()> {
-        let mut tx = self.pool.begin().await.map_err(|e| crate::errors::VaultSyncError::DatabaseError(e.to_string()))?;
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(|e| crate::errors::VaultSyncError::DatabaseError(e.to_string()))?;
 
         sqlx::query(
             "INSERT OR REPLACE INTO Events (event_uuid, name, event_type, date, entry_fee, max_participants, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
@@ -32,11 +36,21 @@ impl EventRepository {
         .execute(&mut *tx)
         .await
         .map_err(|e| crate::errors::VaultSyncError::DatabaseError(e.to_string()))?;
-        
-        self.sync.log_change_with_tx(&mut tx, &event.event_uuid.to_string(), "Event", "Update", &serde_json::to_value(event).unwrap_or_default()).await?;
-        
-        tx.commit().await.map_err(|e| crate::errors::VaultSyncError::DatabaseError(e.to_string()))?;
-        
+
+        self.sync
+            .log_change_with_tx(
+                &mut tx,
+                &event.event_uuid.to_string(),
+                "Event",
+                "Update",
+                &serde_json::to_value(event).unwrap_or_default(),
+            )
+            .await?;
+
+        tx.commit()
+            .await
+            .map_err(|e| crate::errors::VaultSyncError::DatabaseError(e.to_string()))?;
+
         Ok(())
     }
 
@@ -57,7 +71,8 @@ impl EventRepository {
             let entry_fee: f64 = row.try_get("entry_fee").unwrap_or_default();
             let max_participants: Option<i32> = row.try_get("max_participants").ok();
             let created_at_str: String = row.try_get("created_at").unwrap_or_default();
-            let created_at = chrono::DateTime::parse_from_rfc3339(&created_at_str)?.with_timezone(&chrono::Utc);
+            let created_at =
+                chrono::DateTime::parse_from_rfc3339(&created_at_str)?.with_timezone(&chrono::Utc);
 
             events.push(Event {
                 event_uuid,
@@ -89,7 +104,8 @@ impl EventRepository {
             let entry_fee: f64 = row.try_get("entry_fee").unwrap_or_default();
             let max_participants: Option<i32> = row.try_get("max_participants").ok();
             let created_at_str: String = row.try_get("created_at").unwrap_or_default();
-            let created_at = chrono::DateTime::parse_from_rfc3339(&created_at_str)?.with_timezone(&chrono::Utc);
+            let created_at =
+                chrono::DateTime::parse_from_rfc3339(&created_at_str)?.with_timezone(&chrono::Utc);
 
             Ok(Some(Event {
                 event_uuid,
@@ -106,8 +122,12 @@ impl EventRepository {
     }
 
     pub async fn register_participant(&self, participant: &EventParticipant) -> Result<()> {
-        let mut tx = self.pool.begin().await.map_err(|e| crate::errors::VaultSyncError::DatabaseError(e.to_string()))?;
-        
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(|e| crate::errors::VaultSyncError::DatabaseError(e.to_string()))?;
+
         sqlx::query(
             "INSERT OR REPLACE INTO Event_Participants (participant_uuid, event_uuid, customer_uuid, name, paid, placement, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
         )
@@ -121,11 +141,21 @@ impl EventRepository {
         .execute(&mut *tx)
         .await
         .map_err(|e| crate::errors::VaultSyncError::DatabaseError(e.to_string()))?;
-        
-        self.sync.log_change_with_tx(&mut tx, &participant.participant_uuid.to_string(), "EventParticipant", "Update", &serde_json::to_value(participant).unwrap_or_default()).await?;
-        
-        tx.commit().await.map_err(|e| crate::errors::VaultSyncError::DatabaseError(e.to_string()))?;
-        
+
+        self.sync
+            .log_change_with_tx(
+                &mut tx,
+                &participant.participant_uuid.to_string(),
+                "EventParticipant",
+                "Update",
+                &serde_json::to_value(participant).unwrap_or_default(),
+            )
+            .await?;
+
+        tx.commit()
+            .await
+            .map_err(|e| crate::errors::VaultSyncError::DatabaseError(e.to_string()))?;
+
         Ok(())
     }
 
@@ -147,7 +177,8 @@ impl EventRepository {
             let paid: bool = row.try_get("paid").unwrap_or_default();
             let placement: Option<i32> = row.try_get("placement").ok();
             let created_at_str: String = row.try_get("created_at").unwrap_or_default();
-            let created_at = chrono::DateTime::parse_from_rfc3339(&created_at_str)?.with_timezone(&chrono::Utc);
+            let created_at =
+                chrono::DateTime::parse_from_rfc3339(&created_at_str)?.with_timezone(&chrono::Utc);
 
             participants.push(EventParticipant {
                 participant_uuid,

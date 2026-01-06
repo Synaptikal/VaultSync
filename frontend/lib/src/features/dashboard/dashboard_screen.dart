@@ -3,7 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/customer_provider.dart';
-import '../../services/api_service.dart';
+import '../../providers/pricing_provider.dart';
 import '../../services/offline_sync_service.dart';
 import '../../shared/sync_status_widget.dart';
 
@@ -21,6 +21,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<ProductProvider>().loadProducts();
       context.read<CustomerProvider>().loadCustomers();
+      context.read<PricingProvider>().loadPricingDashboard();
     });
   }
 
@@ -29,9 +30,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Dashboard'),
-        actions: const [
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Refresh All',
+            onPressed: () {
+              context.read<ProductProvider>().loadProducts();
+              context.read<CustomerProvider>().loadCustomers();
+              context.read<PricingProvider>().loadPricingDashboard();
+            },
+          ),
           // Use the new SyncIndicator widget
-          SyncIndicator(),
+          const SyncIndicator(),
         ],
       ),
       body: SingleChildScrollView(
@@ -268,19 +278,35 @@ class _PricingDashboardWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<Map<String, dynamic>>(
-      future:
-          Provider.of<ApiService>(context, listen: false).getPricingDashboard(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+    return Consumer<PricingProvider>(
+      builder: (context, provider, child) {
+        if (provider.isLoading && provider.dashboardData == null) {
           return const LinearProgressIndicator();
         }
-        if (snapshot.hasError) {
-          return Text('Pricing Data Unavailable: ${snapshot.error}',
-              style: const TextStyle(color: Colors.red));
+
+        if (provider.error != null && provider.dashboardData == null) {
+          return Card(
+            color: Colors.red.shade50,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  const Icon(Icons.error_outline, color: Colors.red),
+                  const SizedBox(width: 16),
+                  Expanded(
+                      child:
+                          Text('Pricing Data Unavailable: ${provider.error}')),
+                  TextButton(
+                    onPressed: () => provider.loadPricingDashboard(),
+                    child: const Text('Retry'),
+                  )
+                ],
+              ),
+            ),
+          );
         }
 
-        final data = snapshot.data;
+        final data = provider.dashboardData;
         if (data == null) return const SizedBox.shrink();
 
         final trends = data['market_trends'] as Map<String, dynamic>;

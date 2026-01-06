@@ -2,10 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 import 'package:intl/intl.dart';
-import '../../services/api_service.dart';
+import '../../providers/customer_provider.dart';
+import '../../providers/events_provider.dart';
 import '../../api/generated/models/event.dart';
 import '../../api/generated/models/event_participant.dart';
 import '../../api/generated/models/customer.dart';
+
+/// Event Detail Screen (Refactored to use Providers)
+///
+/// Now uses CustomerProvider and EventsProvider instead of ApiService.
+/// Enables offline customer listing for event registration.
 
 class EventDetailScreen extends StatefulWidget {
   final Event event;
@@ -18,19 +24,29 @@ class EventDetailScreen extends StatefulWidget {
 
 class _EventDetailScreenState extends State<EventDetailScreen> {
   final List<EventParticipant> _participants = [];
+  bool _isRegistering = false;
 
   @override
   void initState() {
     super.initState();
-    // TODO: Load participants from API when endpoint is available
+    // Ensure customers are loaded for registration
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<CustomerProvider>().loadCustomers();
+    });
   }
 
   Future<void> _showRegisterDialog() async {
-    final customers = await context.read<ApiService>().getCustomers();
-    Customer? selectedCustomer;
-    bool payWithCredit = false;
+    // Get customers from provider
+    final customerProvider = context.read<CustomerProvider>();
+    if (customerProvider.customers.isEmpty) {
+      await customerProvider.loadCustomers();
+    }
 
     if (!mounted) return;
+
+    final customers = customerProvider.customers;
+    Customer? selectedCustomer;
+    bool payWithCredit = false;
 
     await showDialog(
       context: context,
@@ -42,8 +58,24 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                if (customerProvider.isOffline)
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade100,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.cloud_off, size: 16, color: Colors.orange),
+                        SizedBox(width: 8),
+                        Text('Offline - using cached customers'),
+                      ],
+                    ),
+                  ),
                 DropdownButtonFormField<Customer>(
-                  initialValue: selectedCustomer,
+                  value: selectedCustomer,
                   decoration: const InputDecoration(
                     labelText: 'Select Customer',
                     prefixIcon: Icon(Icons.person),
@@ -98,9 +130,10 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
               child: const Text('Cancel'),
             ),
             FilledButton(
-              onPressed: selectedCustomer == null
+              onPressed: selectedCustomer == null || _isRegistering
                   ? null
                   : () async {
+                      setDialogState(() => _isRegistering = true);
                       try {
                         // Create participant matching the generated model
                         final participant = EventParticipant(
@@ -108,12 +141,15 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                           eventUuid: widget.event.eventUuid,
                           customerUuid: selectedCustomer!.customerUuid,
                           name: selectedCustomer!.name,
-                          paid: true,
+                          paid: payWithCredit,
                           createdAt: DateTime.now(),
                         );
 
-                        await context.read<ApiService>().registerParticipant(
-                            widget.event.eventUuid, participant);
+                        // Use EventsProvider for registration
+                        await context
+                            .read<EventsProvider>()
+                            .registerParticipant(
+                                widget.event.eventUuid, participant);
 
                         if (dialogContext.mounted) {
                           Navigator.pop(dialogContext);
@@ -121,7 +157,8 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                   content: Text(
-                                      '${selectedCustomer!.name} registered!')),
+                                      '${selectedCustomer!.name} registered!'),
+                                  backgroundColor: Colors.green),
                             );
                             // Update local state
                             setState(() {
@@ -132,12 +169,24 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                       } catch (e) {
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Error: $e')),
+                            SnackBar(
+                                content: Text('Error: $e'),
+                                backgroundColor: Colors.red),
                           );
+                        }
+                      } finally {
+                        if (dialogContext.mounted) {
+                          setDialogState(() => _isRegistering = false);
                         }
                       }
                     },
-              child: const Text('Register'),
+              child: _isRegistering
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Register'),
             ),
           ],
         ),

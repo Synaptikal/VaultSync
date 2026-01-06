@@ -8,7 +8,6 @@ import '../../api/generated/models/category.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/customer_provider.dart';
 import '../../providers/cart_provider.dart';
-import '../../services/api_service.dart';
 import 'widgets/condition_grading_dialog.dart';
 import 'widgets/payment_dialog.dart';
 import 'widgets/quick_actions_bar.dart';
@@ -177,30 +176,15 @@ class _POSScreenState extends State<POSScreen>
     }
   }
 
+  /// Submit transaction via CartProvider (TASK-AUD-001d)
+  /// Uses the existing checkout method which handles API calls.
+  /// In the future, this should be refactored to use a TransactionRepository
+  /// for true offline-first support.
   Future<void> _submitTransaction(Map<String, dynamic> paymentDetails) async {
     final cart = context.read<CartProvider>();
-    final api = context.read<ApiService>();
 
-    // Submit sale items
-    if (cart.saleItems.isNotEmpty) {
-      await api.createTransaction(
-        customerUuid: _selectedCustomer?.customerUuid,
-        items:
-            cart.saleItems.map((item) => item.toTransactionItemJson()).toList(),
-        transactionType: 'Sale',
-      );
-    }
-
-    // Submit trade-in items
-    if (cart.tradeInItems.isNotEmpty) {
-      await api.createTransaction(
-        customerUuid: _selectedCustomer?.customerUuid,
-        items: cart.tradeInItems
-            .map((item) => item.toTransactionItemJson())
-            .toList(),
-        transactionType: 'Buy',
-      );
-    }
+    // Use CartProvider's checkout method which handles the transaction
+    await cart.checkout(_selectedCustomer?.customerUuid);
   }
 
   Future<void> _showDiscountDialog(CartProvider cart) async {

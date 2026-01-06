@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import '../../services/api_service.dart';
+import '../../providers/transaction_provider.dart';
 import 'widgets/receipt_dialog.dart';
+
+/// Transactions Screen (TASK-AUD-001k: Refactored to use TransactionProvider)
+///
+/// Now uses TransactionProvider for all operations.
+/// Enables better state management and cached transaction access.
 
 class TransactionsScreen extends StatefulWidget {
   const TransactionsScreen({super.key});
@@ -14,9 +19,6 @@ class TransactionsScreen extends StatefulWidget {
 class _TransactionsScreenState extends State<TransactionsScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  List<Map<String, dynamic>> _transactions = [];
-  bool _isLoading = true;
-  String? _error;
   DateTimeRange? _dateRange;
   String _typeFilter = 'all';
 
@@ -28,7 +30,10 @@ class _TransactionsScreenState extends State<TransactionsScreen>
       start: DateTime.now().subtract(const Duration(days: 7)),
       end: DateTime.now(),
     );
-    _loadTransactions();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadTransactions();
+    });
   }
 
   @override
@@ -38,32 +43,18 @@ class _TransactionsScreenState extends State<TransactionsScreen>
   }
 
   Future<void> _loadTransactions() async {
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
-
-    try {
-      final response = await context.read<ApiService>().getTransactions(
-            transactionType: _typeFilter == 'all' ? null : _typeFilter,
-            limit: 100,
-          );
-      setState(() {
-        _transactions = response;
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() {
-        _error = e.toString();
-        _isLoading = false;
-      });
-    }
+    final provider = context.read<TransactionProvider>();
+    await provider.loadTransactions(
+      transactionType: _typeFilter == 'all' ? null : _typeFilter,
+      limit: 100,
+    );
   }
 
-  List<Map<String, dynamic>> get _filteredTransactions {
-    if (_dateRange == null) return _transactions;
+  List<Map<String, dynamic>> _getFilteredTransactions(
+      TransactionProvider provider) {
+    if (_dateRange == null) return provider.transactions;
 
-    return _transactions.where((t) {
+    return provider.transactions.where((t) {
       final date = DateTime.tryParse(t['created_at'] ?? '');
       if (date == null) return true;
       return date
@@ -72,9 +63,10 @@ class _TransactionsScreenState extends State<TransactionsScreen>
     }).toList();
   }
 
-  List<Map<String, dynamic>> get _todaysTransactions {
+  List<Map<String, dynamic>> _getTodaysTransactions(
+      TransactionProvider provider) {
     final today = DateTime.now();
-    return _transactions.where((t) {
+    return provider.transactions.where((t) {
       final date = DateTime.tryParse(t['created_at'] ?? '');
       if (date == null) return false;
       return date.year == today.year &&
@@ -83,8 +75,8 @@ class _TransactionsScreenState extends State<TransactionsScreen>
     }).toList();
   }
 
-  double get _todaysSalesTotal {
-    return _todaysTransactions
+  double _getTodaysSalesTotal(TransactionProvider provider) {
+    return _getTodaysTransactions(provider)
         .where((t) => t['transaction_type'] == 'Sale')
         .fold(0.0, (sum, t) => sum + (t['total_amount'] ?? 0.0));
   }
@@ -95,6 +87,22 @@ class _TransactionsScreenState extends State<TransactionsScreen>
       appBar: AppBar(
         title: const Text('Transactions'),
         actions: [
+          // Offline indicator
+          Consumer<TransactionProvider>(
+            builder: (context, provider, _) {
+              if (provider.isOffline) {
+                return const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 8),
+                  child: Chip(
+                    avatar: Icon(Icons.cloud_off, size: 16),
+                    label: Text('Offline'),
+                    backgroundColor: Colors.orange,
+                  ),
+                );
+              }
+              return const SizedBox.shrink();
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.calendar_today),
             tooltip: 'Date Range',
@@ -121,27 +129,54 @@ class _TransactionsScreenState extends State<TransactionsScreen>
           ],
         ),
       ),
-      body: Column(
-        children: [
-          // Daily summary
-          _buildDailySummary(),
+      body: Consumer<TransactionProvider>(
+        builder: (context, provider, _) {
+          final filteredTransactions = _getFilteredTransactions(provider);
+          final todaysTransactions = _getTodaysTransactions(provider);
+          final todaysSalesTotal = _getTodaysSalesTotal(provider);
 
-          // Transaction list
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _error != null
-                    ? Center(child: Text('Error: $_error'))
-                    : _filteredTransactions.isEmpty
-                        ? const Center(child: Text('No transactions found'))
-                        : _buildTransactionList(),
-          ),
-        ],
+          return Column(
+            children: [
+              // Daily summary
+              _buildDailySummary(todaysTransactions.length, todaysSalesTotal),
+
+              // Transaction list
+              Expanded(
+                child: provider.isLoading && provider.transactions.isEmpty
+                    ? const Center(child: CircularProgressIndicator())
+                    : provider.error != null && provider.transactions.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.error_outline,
+                                    size: 48, color: Colors.red),
+                                const SizedBox(height: 16),
+                                Text('Error: ${provider.error}'),
+                                const SizedBox(height: 16),
+                                ElevatedButton(
+                                  onPressed: _loadTransactions,
+                                  child: const Text('Retry'),
+                                ),
+                              ],
+                            ),
+                          )
+                        : filteredTransactions.isEmpty
+                            ? const Center(child: Text('No transactions found'))
+                            : RefreshIndicator(
+                                onRefresh: _loadTransactions,
+                                child:
+                                    _buildTransactionList(filteredTransactions),
+                              ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
 
-  Widget _buildDailySummary() {
+  Widget _buildDailySummary(int todaysCount, double todaysSales) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -153,7 +188,7 @@ class _TransactionsScreenState extends State<TransactionsScreen>
             child: _SummaryCard(
               icon: Icons.receipt_long,
               title: "Today's Transactions",
-              value: '${_todaysTransactions.length}',
+              value: '$todaysCount',
               color: Colors.blue,
             ),
           ),
@@ -162,7 +197,7 @@ class _TransactionsScreenState extends State<TransactionsScreen>
             child: _SummaryCard(
               icon: Icons.attach_money,
               title: "Today's Sales",
-              value: '\$${_todaysSalesTotal.toStringAsFixed(2)}',
+              value: '\$${todaysSales.toStringAsFixed(2)}',
               color: Colors.green,
             ),
           ),
@@ -182,13 +217,13 @@ class _TransactionsScreenState extends State<TransactionsScreen>
     );
   }
 
-  Widget _buildTransactionList() {
+  Widget _buildTransactionList(List<Map<String, dynamic>> transactions) {
     return ListView.separated(
       padding: const EdgeInsets.all(16),
-      itemCount: _filteredTransactions.length,
+      itemCount: transactions.length,
       separatorBuilder: (_, __) => const Divider(height: 1),
       itemBuilder: (context, index) {
-        final transaction = _filteredTransactions[index];
+        final transaction = transactions[index];
         return _TransactionTile(
           transaction: transaction,
           onTap: () => _showTransactionDetails(transaction),

@@ -275,9 +275,18 @@ class ProductRepository
 
   @override
   Future<List<Product>> getWhere(Map<String, dynamic> criteria) async {
-    // For now, delegate to local DB
-    // Can be enhanced with remote filtering
-    return await _local.getAll();
+    // Basic in-memory filtering for now
+    // TODO: Move to SQL for performance with large datasets
+    final all = await _local.getAll();
+
+    return all.where((p) {
+      bool match = true;
+      criteria.forEach((key, value) {
+        if (key == 'category' && p.category.name != value) match = false;
+        // Add more filters as needed
+      });
+      return match;
+    }).toList();
   }
 
   // === SyncableRepository Methods ===
@@ -289,8 +298,11 @@ class ProductRepository
 
   @override
   Future<List<Product>> getFailedSync() async {
-    // TODO: Implement failed sync tracking
-    return [];
+    // Identify items that are unsynced and haven't been modified recently (indicating stuck sync)
+    final unsynced = await _local.getUnsynced();
+    // Assuming stuck if not synced within 1 hour - just use all unsynced for now
+    // until we have a proper sync_failures table
+    return unsynced;
   }
 
   @override
@@ -309,8 +321,15 @@ class ProductRepository
 
   // === Additional Helper Methods ===
 
-  /// Get product by barcode
+  /// Get product by barcode (TASK-AUD-003b: Offline-first barcode lookup)
   Future<Product?> getByBarcode(String barcode) async {
+    // 1. Check local cache first (works offline)
+    final cached = await _local.getByBarcode(barcode);
+    if (cached != null) {
+      return cached;
+    }
+
+    // 2. If not in cache and online, try remote
     if (await _isOnline) {
       try {
         final product = await _remote.getByBarcode(barcode);
@@ -320,12 +339,11 @@ class ProductRepository
         }
         return product;
       } catch (e) {
-        debugPrint('[ProductRepository] Barcode lookup failed: $e');
+        debugPrint('[ProductRepository] Remote barcode lookup failed: $e');
       }
     }
 
-    // Fallback to local search by barcode
-    // (Requires barcode field in local schema)
+    // 3. Not found anywhere
     return null;
   }
 

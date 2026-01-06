@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
-import '../../../services/api_service.dart';
 import '../../../api/generated/models/product.dart';
 import '../../../api/generated/models/condition.dart';
 import '../../../api/generated/models/variant_type.dart';
+import '../../../api/generated/models/inventory_item.dart';
+import '../../../providers/inventory_provider.dart';
+
+/// Bulk Add Dialog (TASK-AUD-001h: Refactored to use InventoryProvider)
+///
+/// Now uses InventoryProvider.addItem() instead of direct ApiService calls.
+/// This enables offline inventory addition with local caching.
 
 class BulkAddDialog extends StatefulWidget {
   final Product product;
@@ -23,6 +29,7 @@ class _BulkAddDialogState extends State<BulkAddDialog> {
   Condition _condition = Condition.nm;
   VariantType _variant = VariantType.normal;
   bool _isSaving = false;
+  String? _error;
 
   @override
   void dispose() {
@@ -34,33 +41,47 @@ class _BulkAddDialogState extends State<BulkAddDialog> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    setState(() => _isSaving = true);
+    setState(() {
+      _isSaving = true;
+      _error = null;
+    });
 
     try {
       final qty = int.parse(_qtyController.text);
       final price = double.tryParse(_priceController.text);
 
-      final data = {
-        'inventory_uuid': const Uuid().v4(),
-        'product_uuid': widget.product.productUuid,
-        'condition': _condition.toJson(),
-        'variant_type': _variant.toJson(),
-        'quantity_on_hand': qty,
-        'location_tag': _locationController.text,
-        'specific_price': price,
-        'serialized_details': null,
-      };
+      // Create InventoryItem using the model
+      final item = InventoryItem(
+        inventoryUuid: const Uuid().v4(),
+        productUuid: widget.product.productUuid,
+        condition: _condition,
+        quantityOnHand: qty,
+        locationTag: _locationController.text,
+        specificPrice: price,
+        variantType: _variant,
+        minStockLevel: 0,
+        serializedDetails: null,
+      );
 
-      await context.read<ApiService>().addInventory(data);
+      // Use InventoryProvider for offline-first inventory creation
+      final provider = context.read<InventoryProvider>();
+      await provider.addItem(item);
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Inventory Added successfully')));
+          const SnackBar(
+            content: Text('Inventory added successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
         Navigator.pop(context, true);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Error: $e')));
+        setState(() => _error = e.toString());
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);
@@ -86,11 +107,24 @@ class _BulkAddDialogState extends State<BulkAddDialog> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                // Error display
+                if (_error != null)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(8),
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade100,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(_error!,
+                        style: const TextStyle(color: Colors.red)),
+                  ),
                 Row(
                   children: [
                     Expanded(
                       child: DropdownButtonFormField<Condition>(
-                        initialValue: _condition,
+                        value: _condition,
                         decoration:
                             const InputDecoration(labelText: 'Condition'),
                         items: Condition.$valuesDefined
@@ -103,7 +137,7 @@ class _BulkAddDialogState extends State<BulkAddDialog> {
                     const SizedBox(width: 16),
                     Expanded(
                       child: DropdownButtonFormField<VariantType>(
-                        initialValue: _variant,
+                        value: _variant,
                         decoration: const InputDecoration(labelText: 'Variant'),
                         items: VariantType.$valuesDefined
                             .map((v) =>

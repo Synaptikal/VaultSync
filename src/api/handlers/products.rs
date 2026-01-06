@@ -109,4 +109,3 @@ pub async fn lookup_by_barcode(
             .into_response(),
     }
 }
-

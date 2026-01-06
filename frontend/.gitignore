@@ -1,8 +1,13 @@
+# ==============================================================
+# VaultSync Flutter Frontend .gitignore
+# ==============================================================
+
 # Miscellaneous
 *.class
 *.log
 *.pyc
 *.swp
+*.swo
 .DS_Store
 .atom/
 .build/
@@ -18,20 +23,21 @@ migrate_working_dir/
 *.iws
 .idea/
 
-# The .vscode folder contains launch configuration and tasks you configure in
-# VS Code which you may wish to be included in version control, so this line
-# is commented out by default.
-#.vscode/
+# VS Code
+.vscode/
 
 # Flutter/Dart/Pub related
 **/doc/api/
 **/ios/Flutter/.last_build_id
 .dart_tool/
+.flutter-plugins
 .flutter-plugins-dependencies
+.packages
 .pub-cache/
 .pub/
 /build/
 /coverage/
+pubspec.lock
 
 # Symbolication related
 app.*.symbols
@@ -43,3 +49,49 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+/android/.gradle/
+/android/local.properties
+/android/*.keystore
+!android/app/*.jks
+
+# iOS/macOS
+/ios/Pods/
+/ios/.symlinks/
+/ios/Flutter/Flutter.framework
+/ios/Flutter/Flutter.podspec
+/ios/Flutter/Generated.xcconfig
+/ios/Flutter/app.flx
+/ios/Flutter/app.zip
+/ios/Flutter/flutter_assets/
+/ios/ServiceDefinitions.json
+/ios/Runner/GeneratedPluginRegistrant.*
+/macos/Flutter/ephemeral/
+/macos/Pods/
+
+# Windows
+/windows/flutter/ephemeral/
+
+# Linux  
+/linux/flutter/ephemeral/
+
+# Web
+/web/splash/
+
+# Agent/AI Tools
+.agent/
+.gemini/
+
+# Test output files
+*.txt
+!README*.txt
+analyze_output.txt
+test_output.txt
+
+# Generated files
+**/generated_plugin_registrant.dart
+lib/src/api/generated/
+!lib/src/api/generated/*.dart
+
+# Database
+*.db
+*.sqlite

@@ -185,6 +185,8 @@ async fn main() -> Result<()> {
         },
         sync_actor: sync_actor_handle,
         config: Arc::new(config.clone()),
+        metrics: Arc::new(vaultsync::monitoring::MetricsRegistry::new()),
+        alerting: Arc::new(vaultsync::monitoring::AlertingService::new(db.clone())),
     };
 
     // Create Router with config for CORS

@@ -4,12 +4,17 @@ import 'package:uuid/uuid.dart';
 import 'package:intl/intl.dart';
 import '../../providers/wants_provider.dart';
 import '../../providers/customer_provider.dart';
-import '../../services/api_service.dart';
+import '../../providers/product_provider.dart';
 import '../../api/generated/models/wants_list.dart';
 import '../../api/generated/models/wants_item.dart';
 import '../../api/generated/models/condition.dart';
 import '../../api/generated/models/customer.dart';
 import '../../api/generated/models/product.dart';
+
+/// Wants Screen (TASK-AUD-001l: Refactored to use Providers)
+///
+/// Now uses ProductProvider for product search instead of ApiService.
+/// Enables offline-first wants list management.
 
 class WantsScreen extends StatefulWidget {
   const WantsScreen({super.key});
@@ -139,14 +144,17 @@ class _WantsScreenState extends State<WantsScreen> {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
                                   content:
-                                      Text('Wants list created successfully!')),
+                                      Text('Wants list created successfully!'),
+                                  backgroundColor: Colors.green),
                             );
                           }
                         }
                       } catch (e) {
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Error: $e')),
+                            SnackBar(
+                                content: Text('Error: $e'),
+                                backgroundColor: Colors.red),
                           );
                         }
                       }
@@ -166,6 +174,7 @@ class _WantsScreenState extends State<WantsScreen> {
     Product? selectedProduct;
     Condition selectedCondition = Condition.nm;
     final maxPriceController = TextEditingController();
+    bool isSearching = false;
 
     return await showDialog<_PendingWantsItem>(
       context: parentContext,
@@ -183,31 +192,47 @@ class _WantsScreenState extends State<WantsScreen> {
                   decoration: InputDecoration(
                     labelText: 'Search Products',
                     prefixIcon: const Icon(Icons.search),
-                    suffixIcon: IconButton(
-                      icon: const Icon(Icons.search),
-                      onPressed: () async {
-                        if (searchController.text.isNotEmpty) {
-                          try {
-                            final results = await context
-                                .read<ApiService>()
-                                .searchProducts(query: searchController.text);
-                            setState(() => searchResults = results);
-                          } catch (e) {
-                            // Handle error
-                          }
-                        }
-                      },
-                    ),
+                    suffixIcon: isSearching
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : IconButton(
+                            icon: const Icon(Icons.search),
+                            onPressed: () async {
+                              if (searchController.text.isNotEmpty) {
+                                setState(() => isSearching = true);
+                                try {
+                                  // Use ProductProvider instead of ApiService
+                                  final provider =
+                                      context.read<ProductProvider>();
+                                  await provider.loadProducts(
+                                      query: searchController.text);
+                                  setState(() {
+                                    searchResults = provider.products;
+                                    isSearching = false;
+                                  });
+                                } catch (e) {
+                                  setState(() => isSearching = false);
+                                }
+                              }
+                            },
+                          ),
                   ),
                   onSubmitted: (value) async {
                     if (value.isNotEmpty) {
+                      setState(() => isSearching = true);
                       try {
-                        final results = await context
-                            .read<ApiService>()
-                            .searchProducts(query: value);
-                        setState(() => searchResults = results);
+                        // Use ProductProvider instead of ApiService
+                        final provider = context.read<ProductProvider>();
+                        await provider.loadProducts(query: value);
+                        setState(() {
+                          searchResults = provider.products;
+                          isSearching = false;
+                        });
                       } catch (e) {
-                        // Handle error
+                        setState(() => isSearching = false);
                       }
                     }
                   },
@@ -216,7 +241,11 @@ class _WantsScreenState extends State<WantsScreen> {
                 // Search results
                 Expanded(
                   child: searchResults.isEmpty
-                      ? const Center(child: Text('Search for a product'))
+                      ? Center(
+                          child: isSearching
+                              ? const CircularProgressIndicator()
+                              : const Text('Search for a product'),
+                        )
                       : ListView.builder(
                           itemCount: searchResults.length,
                           itemBuilder: (context, index) {
@@ -241,7 +270,7 @@ class _WantsScreenState extends State<WantsScreen> {
                 // Condition selector
                 if (selectedProduct != null) ...[
                   DropdownButtonFormField<Condition>(
-                    initialValue: selectedCondition,
+                    value: selectedCondition,
                     decoration:
                         const InputDecoration(labelText: 'Minimum Condition'),
                     items: Condition.values
@@ -294,7 +323,27 @@ class _WantsScreenState extends State<WantsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Wants Lists')),
+      appBar: AppBar(
+        title: const Text('Wants Lists'),
+        actions: [
+          // Offline indicator
+          Consumer<WantsProvider>(
+            builder: (context, provider, _) {
+              if (provider.isOffline) {
+                return const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 8),
+                  child: Chip(
+                    avatar: Icon(Icons.cloud_off, size: 16),
+                    label: Text('Offline'),
+                    backgroundColor: Colors.orange,
+                  ),
+                );
+              }
+              return const SizedBox.shrink();
+            },
+          ),
+        ],
+      ),
       body: Column(
         children: [
           // Customer selector
@@ -306,7 +355,7 @@ class _WantsScreenState extends State<WantsScreen> {
                   return const LinearProgressIndicator();
                 }
                 return DropdownButtonFormField<Customer>(
-                  initialValue: _selectedCustomer,
+                  value: _selectedCustomer,
                   decoration: const InputDecoration(
                     labelText: 'Select Customer',
                     border: OutlineInputBorder(),
@@ -346,7 +395,23 @@ class _WantsScreenState extends State<WantsScreen> {
                 }
 
                 if (wantsProvider.error != null) {
-                  return Center(child: Text('Error: ${wantsProvider.error}'));
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.error_outline,
+                            size: 48, color: Colors.red),
+                        const SizedBox(height: 16),
+                        Text('Error: ${wantsProvider.error}'),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: () => wantsProvider
+                              .loadWantsLists(_selectedCustomer!.customerUuid),
+                          child: const Text('Retry'),
+                        ),
+                      ],
+                    ),
+                  );
                 }
 
                 if (wantsProvider.wantsLists.isEmpty) {
@@ -370,44 +435,51 @@ class _WantsScreenState extends State<WantsScreen> {
                   );
                 }
 
-                return ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: wantsProvider.wantsLists.length,
-                  itemBuilder: (context, index) {
-                    final wantsList = wantsProvider.wantsLists[index];
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      child: ExpansionTile(
-                        leading: CircleAvatar(
-                          backgroundColor:
-                              Theme.of(context).colorScheme.primaryContainer,
-                          child: Text('${wantsList.items.length}'),
-                        ),
-                        title: Text('Wants List #${index + 1}'),
-                        subtitle: Text(
-                            'Created: ${DateFormat.yMMMd().format(wantsList.createdAt.toLocal())}'),
-                        children: wantsList.items.map((item) {
-                          return ListTile(
-                            contentPadding:
-                                const EdgeInsets.symmetric(horizontal: 24),
-                            leading: const Icon(Icons.check_box_outline_blank),
-                            title: FutureBuilder<Product>(
-                              future: context
-                                  .read<ApiService>()
-                                  .getProductById(item.productUuid),
-                              builder: (context, snapshot) {
-                                return Text(
-                                    snapshot.data?.name ?? 'Loading...');
+                return RefreshIndicator(
+                  onRefresh: () => wantsProvider
+                      .loadWantsLists(_selectedCustomer!.customerUuid),
+                  child: ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: wantsProvider.wantsLists.length,
+                    itemBuilder: (context, index) {
+                      final wantsList = wantsProvider.wantsLists[index];
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        child: ExpansionTile(
+                          leading: CircleAvatar(
+                            backgroundColor:
+                                Theme.of(context).colorScheme.primaryContainer,
+                            child: Text('${wantsList.items.length}'),
+                          ),
+                          title: Text('Wants List #${index + 1}'),
+                          subtitle: Text(
+                              'Created: ${DateFormat.yMMMd().format(wantsList.createdAt.toLocal())}'),
+                          children: wantsList.items.map((item) {
+                            // Use ProductProvider to get product name from cache
+                            return Consumer<ProductProvider>(
+                              builder: (context, productProvider, _) {
+                                final product = productProvider.products
+                                    .where((p) =>
+                                        p.productUuid == item.productUuid)
+                                    .firstOrNull;
+                                return ListTile(
+                                  contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 24),
+                                  leading:
+                                      const Icon(Icons.check_box_outline_blank),
+                                  title: Text(product?.name ??
+                                      'Product: ${item.productUuid.substring(0, 8)}...'),
+                                  subtitle: Text(
+                                    'Min: ${item.minCondition.name}${item.maxPrice != null ? ' • Max: \$${item.maxPrice!.toStringAsFixed(2)}' : ''}',
+                                  ),
+                                );
                               },
-                            ),
-                            subtitle: Text(
-                              'Min: ${item.minCondition.name}${item.maxPrice != null ? ' • Max: \$${item.maxPrice!.toStringAsFixed(2)}' : ''}',
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    );
-                  },
+                            );
+                          }).toList(),
+                        ),
+                      );
+                    },
+                  ),
                 );
               },
             ),

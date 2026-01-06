@@ -28,13 +28,15 @@ pub async fn create_transaction(
     let result = match req.transaction_type {
         TransactionType::Sale => {
             state
-                .commerce.transactions
+                .commerce
+                .transactions
                 .process_sale(req.customer_uuid, Some(user_uuid), req.items)
                 .await
         }
         TransactionType::Buy => {
             state
-                .commerce.transactions
+                .commerce
+                .transactions
                 .process_buy(req.customer_uuid, Some(user_uuid), req.items)
                 .await
         }
@@ -108,4 +110,3 @@ pub async fn get_transaction_by_id(
             .into_response(),
     }
 }
-

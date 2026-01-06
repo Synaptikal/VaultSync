@@ -1,11 +1,49 @@
-target/
-vaultsync.db
-.git
-.env
-.github
-Dockerfile
-README.md
-docs/
-tests/
-frontend/
+# Development directories
 .agent/
+.gemini/
+.git/
+.github/
+target/
+frontend/build/
+frontend/.dart_tool/
+node_modules/
+
+# Documentation (not needed in container)
+docs/
+*.md
+!README.md
+
+# Test files
+tests/
+examples/
+
+# Environment files
+.env*
+!.env.example
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs and temp files
+*.log
+*.txt
+*.tmp
+
+# Database files
+*.db
+*.sqlite
+
+# Windows files
+*.ps1
+Thumbs.db
+
+# Archives
+*.zip
+*.tar.gz
+
+# Coverage
+coverage/
+*.lcov
